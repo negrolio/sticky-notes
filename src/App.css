@@ -92,3 +92,38 @@ body {
 .note[data-over-trash] {
   opacity: 0.4;
 }
+
+/* No z-index: as a later positioned sibling of the board, the region is painted above it. Empty, it takes no space. */
+.toasts {
+  position: fixed;
+  bottom: 16px;
+  left: 50%;
+  transform: translateX(-50%);
+}
+
+.toast {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px 10px 16px;
+  border-radius: 6px;
+  background: #323232;
+  color: #fff;
+  font-size: 14px;
+  box-shadow: 0 2px 8px rgb(0 0 0 / 30%);
+}
+
+.toast button {
+  padding: 4px 8px;
+  border: 0;
+  border-radius: 4px;
+  background: transparent;
+  color: #ffd54f;
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.toast button:hover {
+  background: rgb(255 255 255 / 12%);
+}

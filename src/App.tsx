@@ -3,10 +3,12 @@ import './App.css'
 import { clickRect, dragRect, isWithinClickTolerance, newNote, topZ } from './create.ts'
 import { boardSize, useBoardSize } from './board.ts'
 import { clampRect, type Rect } from './geometry.ts'
-import { TRASH_SIZE } from './model.ts'
+import { TRASH_SIZE, type Note } from './model.ts'
 import { createMemoryRepository, type NotesRepository } from './repository.ts'
 import { StickyNote } from './StickyNote.tsx'
 import { useNotes } from './store.ts'
+import { useUndoableDelete, useUndoKey } from './undo.ts'
+import { UndoToast } from './UndoToast.tsx'
 import { usePointerGesture } from './usePointerGesture.ts'
 
 // Created once at module load so useNotes sees the same repository on every render.
@@ -20,6 +22,16 @@ export function App({ repository = defaultRepository }: AppProps) {
   const { loaded, notes, upsert, remove } = useNotes(repository)
   const [draft, setDraft] = useState<Rect | null>(null)
   const [focusId, setFocusId] = useState<string | null>(null)
+  const { toast, deleteNote, undo } = useUndoableDelete({ remove, upsert })
+  useUndoKey(undo)
+  // A deleted note must not take focus again when it is restored.
+  const onDelete = useCallback(
+    (note: Note) => {
+      setFocusId(null)
+      deleteNote(note)
+    },
+    [deleteNote],
+  )
   const trashRef = useRef<HTMLDivElement>(null)
   // The highlight goes through the DOM so that App does not render mid-gesture.
   const onTrashHover = useCallback((over: boolean) => {
@@ -62,7 +74,7 @@ export function App({ repository = defaultRepository }: AppProps) {
             {...clampRect(note, board)}
             autoFocus={note.id === focusId}
             onChange={upsert}
-            onDelete={remove}
+            onDelete={onDelete}
             onTrashHover={onTrashHover}
           />
         ))}
@@ -79,6 +91,11 @@ export function App({ repository = defaultRepository }: AppProps) {
         <svg viewBox="0 0 24 24" width="36" height="36" aria-hidden="true">
           <path d="M9 3h6l1 2h4v2H4V5h4l1-2zM6 9h12l-1 12H7L6 9z" fill="currentColor" />
         </svg>
+      </div>
+      {/* A live region must exist before its content changes, so the region stays and only the toast mounts.
+          Like the trash zone, it is a sibling after the board, so it stays above every note. */}
+      <div className="toasts" role="status">
+        {toast > 0 && <UndoToast key={toast} onUndo={undo} />}
       </div>
     </>
   )

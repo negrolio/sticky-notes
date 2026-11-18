@@ -16,8 +16,8 @@ interface StickyNoteProps extends Rect {
   autoFocus: boolean
   /** Commits a changed note. Must be stable across renders, or every note re-renders on each commit. */
   onChange: (note: Note) => void
-  /** Deletes the note. Must be stable across renders, like `onChange`. */
-  onDelete: (id: string) => void
+  /** Deletes the note through the undoable path. Must be stable across renders, like `onChange`. */
+  onDelete: (note: Note) => void
   /** Reports whether a move has the pointer over the trash zone. Must be stable across renders. */
   onTrashHover: (over: boolean) => void
 }
@@ -103,7 +103,7 @@ function StickyNoteView({ note, x, y, width, height, autoFocus, onChange, onDele
       // Only the position is written: a note shrunk to the board keeps its stored size.
       commit(point) {
         if (isOverTrash(point, boardSize())) {
-          onDelete(note.id)
+          onDelete(note)
           return
         }
         const moved = movedTo(point)
