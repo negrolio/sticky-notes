@@ -1,4 +1,4 @@
-import { useCallback, useRef, useState, type PointerEvent as ReactPointerEvent } from 'react'
+import { useCallback, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from 'react'
 import './App.css'
 import { clickRect, dragRect, isWithinClickTolerance, newNote, topZ } from './create.ts'
 import { boardSize, useBoardSize } from './board.ts'
@@ -20,6 +20,8 @@ interface AppProps {
 
 export function App({ repository = defaultRepository }: AppProps) {
   const { loaded, notes, upsert, remove } = useNotes(repository)
+  // Notes render in ascending z because the Tab order follows the document order (decision 18).
+  const byZ = useMemo(() => [...notes].sort((p, q) => p.z - q.z), [notes])
   const [draft, setDraft] = useState<Rect | null>(null)
   const [focusId, setFocusId] = useState<string | null>(null)
   const { toast, deleteNote, undo } = useUndoableDelete({ remove, upsert })
@@ -67,7 +69,7 @@ export function App({ repository = defaultRepository }: AppProps) {
   return (
     <>
       <main className="board" aria-label="Sticky notes board" aria-busy={!loaded} onPointerDown={onBoardPointerDown}>
-        {notes.map((note) => (
+        {byZ.map((note) => (
           <StickyNote
             key={note.id}
             note={note}

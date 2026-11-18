@@ -1,4 +1,10 @@
-import { memo, useLayoutEffect, useRef, type PointerEvent as ReactPointerEvent } from 'react'
+import {
+  memo,
+  useLayoutEffect,
+  useRef,
+  type KeyboardEvent as ReactKeyboardEvent,
+  type PointerEvent as ReactPointerEvent,
+} from 'react'
 import { boardSize } from './board.ts'
 import { clampRect, type Point, type Rect } from './geometry.ts'
 import type { Note } from './model.ts'
@@ -29,6 +35,17 @@ interface FrameGesture {
   /** Undoes everything `apply` wrote, so React's own styles show again. */
   reset: (root: HTMLDivElement) => void
   commit: (point: Point) => void
+}
+
+/**
+ * The note after this one in Tab order, or the one before it if this is the last. Notes render in
+ * ascending z, so their sibling order is the Tab order.
+ */
+function adjacentNote(root: HTMLElement): HTMLElement | null {
+  const isNote = (el: Element | null): el is HTMLElement => el instanceof HTMLElement && el.classList.contains('note')
+  for (let el = root.nextElementSibling; el; el = el.nextElementSibling) if (isNote(el)) return el
+  for (let el = root.previousElementSibling; el; el = el.previousElementSibling) if (isNote(el)) return el
+  return null
 }
 
 /**
@@ -138,13 +155,24 @@ function StickyNoteView({ note, x, y, width, height, autoFocus, onChange, onDele
     })
   }
 
+  // Only on the note itself: inside the textarea, Delete and Backspace edit text.
+  const onKeyDown = (event: ReactKeyboardEvent<HTMLDivElement>) => {
+    if (event.target !== event.currentTarget || (event.key !== 'Delete' && event.key !== 'Backspace')) return
+    event.preventDefault()
+    // Focus moves before the delete, so it never falls to the body while a note is left.
+    adjacentNote(event.currentTarget)?.focus()
+    onDelete(note)
+  }
+
   return (
     <div
       ref={rootRef}
       role="group"
       aria-label="Sticky note"
+      tabIndex={0}
       data-note-id={note.id}
       className="note"
+      onKeyDown={onKeyDown}
       style={{
         left: x,
         top: y,
