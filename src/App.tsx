@@ -1,8 +1,8 @@
 import { useState, type PointerEvent as ReactPointerEvent } from 'react'
 import './App.css'
 import { clickRect, dragRect, isWithinClickTolerance, newNote, topZ } from './create.ts'
-import { boardSize } from './board.ts'
-import type { Rect } from './geometry.ts'
+import { boardSize, useBoardSize } from './board.ts'
+import { clampRect, type Rect } from './geometry.ts'
 import { createMemoryRepository, type NotesRepository } from './repository.ts'
 import { StickyNote } from './StickyNote.tsx'
 import { useNotes } from './store.ts'
@@ -20,6 +20,7 @@ export function App({ repository = defaultRepository }: AppProps) {
   const [draft, setDraft] = useState<Rect | null>(null)
   const [focusId, setFocusId] = useState<string | null>(null)
   const startGesture = usePointerGesture()
+  const board = useBoardSize()
 
   const onBoardPointerDown = (event: ReactPointerEvent<HTMLElement>) => {
     // Before the load lands, a new note's z could not be placed above the stored notes.
@@ -48,7 +49,13 @@ export function App({ repository = defaultRepository }: AppProps) {
   return (
     <main className="board" aria-label="Sticky notes board" aria-busy={!loaded} onPointerDown={onBoardPointerDown}>
       {notes.map((note) => (
-        <StickyNote key={note.id} note={note} autoFocus={note.id === focusId} onChange={upsert} />
+        <StickyNote
+          key={note.id}
+          note={note}
+          {...clampRect(note, board)}
+          autoFocus={note.id === focusId}
+          onChange={upsert}
+        />
       ))}
       {draft && (
         <div

@@ -1,11 +1,16 @@
-import { memo, useRef, type PointerEvent as ReactPointerEvent } from 'react'
+import { memo, useLayoutEffect, useRef, type PointerEvent as ReactPointerEvent } from 'react'
 import { boardSize } from './board.ts'
-import { clampRect, type Point } from './geometry.ts'
+import { clampRect, type Point, type Rect } from './geometry.ts'
 import type { Note } from './model.ts'
 import { resizedRect } from './resize.ts'
 import { usePointerGesture } from './usePointerGesture.ts'
 
-interface StickyNoteProps {
+/**
+ * The rect fields are where the note is displayed: its stored rect clamped to the board. They are
+ * primitives so that a window resize re-renders only the notes whose displayed rect changes.
+ */
+interface StickyNoteProps extends Rect {
+  /** As stored; its rect may lie partly outside a board that has shrunk since. */
   note: Note
   autoFocus: boolean
   /** Commits a changed note. Must be stable across renders, or every note re-renders on each commit. */
@@ -21,10 +26,20 @@ interface FrameGesture {
   commit: (point: Point) => void
 }
 
-/** During a move or resize the note does not render at all; the gesture writes to its DOM. */
-function StickyNoteView({ note, autoFocus, onChange }: StickyNoteProps) {
+/**
+ * A move or resize writes to the note's DOM instead of rendering it. Gestures start from the
+ * displayed rect, so the preview and the committed result agree. The note renders mid-gesture only
+ * if a window resize changes its displayed rect.
+ */
+function StickyNoteView({ note, x, y, width, height, autoFocus, onChange }: StickyNoteProps) {
   const rootRef = useRef<HTMLDivElement>(null)
   const startGesture = usePointerGesture()
+  // The last rendered size, which a resize gesture restores on reset. A window resize may have
+  // changed it since the gesture started, and React does not rewrite a style whose prop is unchanged.
+  const renderedSize = useRef({ width, height })
+  useLayoutEffect(() => {
+    renderedSize.current = { width, height }
+  })
 
   const startFrameGesture = (event: ReactPointerEvent<HTMLElement>, gesture: FrameGesture) => {
     event.preventDefault()
@@ -58,41 +73,45 @@ function StickyNoteView({ note, autoFocus, onChange }: StickyNoteProps) {
   const onHeaderPointerDown = (event: ReactPointerEvent<HTMLElement>) => {
     const start = { x: event.clientX, y: event.clientY }
     const movedTo = (point: Point) =>
-      clampRect({ ...note, x: note.x + point.x - start.x, y: note.y + point.y - start.y }, boardSize())
+      clampRect({ x: x + point.x - start.x, y: y + point.y - start.y, width, height }, boardSize())
 
     startFrameGesture(event, {
       apply(root, point) {
-        const { x, y } = movedTo(point)
-        root.style.transform = `translate(${String(x - note.x)}px, ${String(y - note.y)}px)`
+        const moved = movedTo(point)
+        root.style.transform = `translate(${String(moved.x - x)}px, ${String(moved.y - y)}px)`
       },
       reset(root) {
         root.style.transform = ''
       },
+      // Only the position is written: a note shrunk to the board keeps its stored size.
       commit(point) {
-        const { x, y } = movedTo(point)
-        if (x !== note.x || y !== note.y) onChange({ ...note, x, y })
+        const moved = movedTo(point)
+        if (moved.x !== x || moved.y !== y) onChange({ ...note, x: moved.x, y: moved.y })
       },
     })
   }
 
   const onResizePointerDown = (event: ReactPointerEvent<HTMLElement>) => {
     const start = { x: event.clientX, y: event.clientY }
-    const resizedTo = (point: Point) => resizedRect(note, { x: point.x - start.x, y: point.y - start.y }, boardSize())
+    const displayed = { x, y, width, height }
+    const resizedTo = (point: Point) =>
+      resizedRect(displayed, { x: point.x - start.x, y: point.y - start.y }, boardSize())
 
     startFrameGesture(event, {
       apply(root, point) {
-        const { width, height } = resizedTo(point)
-        root.style.width = `${String(width)}px`
-        root.style.height = `${String(height)}px`
+        const resized = resizedTo(point)
+        root.style.width = `${String(resized.width)}px`
+        root.style.height = `${String(resized.height)}px`
       },
       reset(root) {
-        root.style.width = `${String(note.width)}px`
-        root.style.height = `${String(note.height)}px`
+        root.style.width = `${String(renderedSize.current.width)}px`
+        root.style.height = `${String(renderedSize.current.height)}px`
       },
+      // The whole displayed rect is written, so a clamped note is stored where it was seen.
       commit(point) {
-        const rect = resizedTo(point)
-        if (rect.x !== note.x || rect.y !== note.y || rect.width !== note.width || rect.height !== note.height) {
-          onChange({ ...note, ...rect })
+        const resized = resizedTo(point)
+        if (resized.x !== x || resized.y !== y || resized.width !== width || resized.height !== height) {
+          onChange({ ...note, ...resized })
         }
       },
     })
@@ -106,10 +125,10 @@ function StickyNoteView({ note, autoFocus, onChange }: StickyNoteProps) {
       data-note-id={note.id}
       className="note"
       style={{
-        left: note.x,
-        top: note.y,
-        width: note.width,
-        height: note.height,
+        left: x,
+        top: y,
+        width,
+        height,
         zIndex: note.z,
         backgroundColor: note.color,
       }}
