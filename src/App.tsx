@@ -1,7 +1,8 @@
 import { useState, type PointerEvent as ReactPointerEvent } from 'react'
 import './App.css'
 import { clickRect, dragRect, isWithinClickTolerance, newNote, topZ } from './create.ts'
-import type { Rect, Size } from './geometry.ts'
+import { boardSize } from './board.ts'
+import type { Rect } from './geometry.ts'
 import { createMemoryRepository, type NotesRepository } from './repository.ts'
 import { StickyNote } from './StickyNote.tsx'
 import { useNotes } from './store.ts'
@@ -9,11 +10,6 @@ import { usePointerGesture } from './usePointerGesture.ts'
 
 // Created once at module load so useNotes sees the same repository on every render.
 const defaultRepository = createMemoryRepository()
-
-/** The board fills the viewport at (0,0), so client coordinates are board coordinates. */
-function boardSize(): Size {
-  return { width: window.innerWidth, height: window.innerHeight }
-}
 
 interface AppProps {
   repository?: NotesRepository
@@ -52,7 +48,7 @@ export function App({ repository = defaultRepository }: AppProps) {
   return (
     <main className="board" aria-label="Sticky notes board" aria-busy={!loaded} onPointerDown={onBoardPointerDown}>
       {notes.map((note) => (
-        <StickyNote key={note.id} note={note} autoFocus={note.id === focusId} />
+        <StickyNote key={note.id} note={note} autoFocus={note.id === focusId} onChange={upsert} />
       ))}
       {draft && (
         <div
