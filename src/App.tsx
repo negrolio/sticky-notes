@@ -2,8 +2,9 @@ import { useCallback, useLayoutEffect, useMemo, useRef, useState, type PointerEv
 import './App.css'
 import { clickRect, dragRect, frontZ, isWithinClickTolerance, newNote, topZ } from './create.ts'
 import { boardSize, useBoardSize } from './board.ts'
+import { ColorPopover } from './ColorPopover.tsx'
 import { clampRect, type Rect } from './geometry.ts'
-import { TRASH_SIZE, type Note } from './model.ts'
+import { TRASH_SIZE, type Note, type NoteColor } from './model.ts'
 import { createMemoryRepository, type NotesRepository } from './repository.ts'
 import { StickyNote } from './StickyNote.tsx'
 import { useNotes } from './store.ts'
@@ -30,12 +31,23 @@ export function App({ repository = defaultRepository }: AppProps) {
   const raisedZ = useCallback((note: Note) => frontZ(note, notesRef.current), [])
   const [draft, setDraft] = useState<Rect | null>(null)
   const [focusId, setFocusId] = useState<string | null>(null)
+  // The note whose color popover is open, and the swatch button it is anchored to.
+  const [colors, setColors] = useState<{ id: string; button: HTMLButtonElement } | null>(null)
+  const onColorButton = useCallback((id: string, button: HTMLButtonElement) => {
+    setColors((open) => (open?.id === id ? null : { id, button }))
+  }, [])
+  const closeColors = useCallback(() => {
+    setColors(null)
+  }, [])
+  const colorsNote = colors && notes.find((n) => n.id === colors.id)
   const { toast, deleteNote, undo } = useUndoableDelete({ remove, upsert })
   useUndoKey(undo)
   // A deleted note must not take focus again when it is restored.
   const onDelete = useCallback(
     (note: Note) => {
       setFocusId(null)
+      // Otherwise the popover would come back with the note if the delete is undone.
+      setColors((open) => (open?.id === note.id ? null : open))
       deleteNote(note)
     },
     [deleteNote],
@@ -51,6 +63,8 @@ export function App({ repository = defaultRepository }: AppProps) {
   const onBoardPointerDown = (event: ReactPointerEvent<HTMLElement>) => {
     // Before the load lands, a new note's z could not be placed above the stored notes.
     if (!loaded || event.target !== event.currentTarget) return
+    // A press on the board while the color popover is open only closes the popover.
+    if (colors) return
     event.preventDefault()
     const start = { x: event.clientX, y: event.clientY }
     let dragged = false
@@ -84,6 +98,8 @@ export function App({ repository = defaultRepository }: AppProps) {
             onChange={upsert}
             onDelete={onDelete}
             raisedZ={raisedZ}
+            colorsOpen={note.id === colors?.id}
+            onColorButton={onColorButton}
             onTrashHover={onTrashHover}
           />
         ))}
@@ -106,6 +122,18 @@ export function App({ repository = defaultRepository }: AppProps) {
       <div className="toasts" role="status">
         {toast > 0 && <UndoToast key={toast} onUndo={undo} />}
       </div>
+      {/* Like the trash zone and the toasts, after the board so it is drawn above every note. */}
+      {colors && colorsNote && (
+        <ColorPopover
+          key={colors.id}
+          color={colorsNote.color}
+          anchor={colors.button}
+          onSelect={(color: NoteColor) => {
+            if (color !== colorsNote.color) upsert({ ...colorsNote, color })
+          }}
+          onClose={closeColors}
+        />
+      )}
     </>
   )
 }

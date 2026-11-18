@@ -28,8 +28,22 @@ body {
 
 .note-header {
   flex: 0 0 24px;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  padding: 0 6px;
   cursor: grab;
   background: rgb(0 0 0 / 6%);
+}
+
+/* Filled with the note's color, ringed so it stands out from the header. */
+.note-color {
+  width: 14px;
+  height: 14px;
+  padding: 0;
+  border: 2px solid rgb(0 0 0 / 35%);
+  border-radius: 50%;
+  cursor: pointer;
 }
 
 .note-text {
@@ -126,4 +140,30 @@ body {
 
 .toast button:hover {
   background: rgb(255 255 255 / 12%);
+}
+
+/* Like the trash zone, a later sibling of the board with a z-index, so it is drawn above every note. */
+.color-popover {
+  position: fixed;
+  z-index: 1;
+  display: flex;
+  gap: 6px;
+  padding: 6px;
+  border-radius: 6px;
+  background: #fff;
+  box-shadow: 0 2px 8px rgb(0 0 0 / 30%);
+}
+
+.color-swatch {
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  border: 1px solid rgb(0 0 0 / 20%);
+  border-radius: 50%;
+  cursor: pointer;
+}
+
+.color-swatch[aria-pressed='true'] {
+  outline: 2px solid #323232;
+  outline-offset: 2px;
 }

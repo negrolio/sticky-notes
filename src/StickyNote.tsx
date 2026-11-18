@@ -31,6 +31,9 @@ interface StickyNoteProps extends Rect {
   onTrashHover: (over: boolean) => void
   /** The z that brings the note to the front, or its own z if it is there. Must be stable across renders. */
   raisedZ: (note: Note) => number
+  colorsOpen: boolean
+  /** Toggles the color popover for this note, anchored to its swatch button. Must be stable across renders. */
+  onColorButton: (id: string, button: HTMLButtonElement) => void
 }
 
 /** Applies a gesture's latest point to the DOM at most once per animation frame. */
@@ -69,6 +72,8 @@ function StickyNoteView({
   onDelete,
   onTrashHover,
   raisedZ,
+  colorsOpen,
+  onColorButton,
 }: StickyNoteProps) {
   const rootRef = useRef<HTMLDivElement>(null)
   const startGesture = usePointerGesture()
@@ -160,6 +165,8 @@ function StickyNoteView({
   }
 
   const onHeaderPointerDown = (event: ReactPointerEvent<HTMLElement>) => {
+    // A press on the swatch button is a click, not the start of a move.
+    if (event.target !== event.currentTarget) return
     const start = { x: event.clientX, y: event.clientY }
     const movedTo = (point: Point) =>
       clampRect({ x: x + point.x - start.x, y: y + point.y - start.y, width, height }, boardSize())
@@ -266,7 +273,19 @@ function StickyNoteView({
         backgroundColor: note.color,
       }}
     >
-      <div className="note-header" onPointerDown={onHeaderPointerDown} />
+      <div className="note-header" onPointerDown={onHeaderPointerDown}>
+        <button
+          type="button"
+          className="note-color"
+          aria-label="Change color"
+          aria-haspopup="dialog"
+          aria-expanded={colorsOpen}
+          style={{ backgroundColor: note.color }}
+          onClick={(event) => {
+            onColorButton(note.id, event.currentTarget)
+          }}
+        />
+      </div>
       <textarea
         className="note-text"
         aria-label="Note text"
