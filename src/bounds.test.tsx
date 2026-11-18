@@ -187,7 +187,7 @@ describe('gestures on a clamped note start from its displayed rect', () => {
   test('a move pushing a clamped note further out writes nothing and does not shift it', async () => {
     const { upsert } = await renderApp([edge])
     resizeWindow(900, 700)
-    drag(headerOf('edge'), [750, 560], [850, 660])
+    drag(headerOf('edge'), [750, 560], [850, 600])
 
     expect(upsert).not.toHaveBeenCalled()
     expect(displayed('edge')).toMatchObject({ left: '700px', top: '550px', transform: '' })

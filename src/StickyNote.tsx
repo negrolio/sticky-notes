@@ -3,6 +3,7 @@ import { boardSize } from './board.ts'
 import { clampRect, type Point, type Rect } from './geometry.ts'
 import type { Note } from './model.ts'
 import { resizedRect } from './resize.ts'
+import { isOverTrash } from './trash.ts'
 import { usePointerGesture } from './usePointerGesture.ts'
 
 /**
@@ -15,6 +16,10 @@ interface StickyNoteProps extends Rect {
   autoFocus: boolean
   /** Commits a changed note. Must be stable across renders, or every note re-renders on each commit. */
   onChange: (note: Note) => void
+  /** Deletes the note. Must be stable across renders, like `onChange`. */
+  onDelete: (id: string) => void
+  /** Reports whether a move has the pointer over the trash zone. Must be stable across renders. */
+  onTrashHover: (over: boolean) => void
 }
 
 /** Applies a gesture's latest point to the DOM at most once per animation frame. */
@@ -31,7 +36,7 @@ interface FrameGesture {
  * displayed rect, so the preview and the committed result agree. The note renders mid-gesture only
  * if a window resize changes its displayed rect.
  */
-function StickyNoteView({ note, x, y, width, height, autoFocus, onChange }: StickyNoteProps) {
+function StickyNoteView({ note, x, y, width, height, autoFocus, onChange, onDelete, onTrashHover }: StickyNoteProps) {
   const rootRef = useRef<HTMLDivElement>(null)
   const startGesture = usePointerGesture()
   // The last rendered size, which a resize gesture restores on reset. A window resize may have
@@ -75,16 +80,32 @@ function StickyNoteView({ note, x, y, width, height, autoFocus, onChange }: Stic
     const movedTo = (point: Point) =>
       clampRect({ x: x + point.x - start.x, y: y + point.y - start.y, width, height }, boardSize())
 
+    // Tracked so the zone is told only when the hover changes, not on every frame.
+    let overTrash = false
+    const setOverTrash = (root: HTMLDivElement, over: boolean) => {
+      if (over === overTrash) return
+      overTrash = over
+      // The dim goes through the DOM, like the transform, so the note does not render mid-gesture.
+      root.toggleAttribute('data-over-trash', over)
+      onTrashHover(over)
+    }
+
     startFrameGesture(event, {
       apply(root, point) {
         const moved = movedTo(point)
         root.style.transform = `translate(${String(moved.x - x)}px, ${String(moved.y - y)}px)`
+        setOverTrash(root, isOverTrash(point, boardSize()))
       },
       reset(root) {
         root.style.transform = ''
+        setOverTrash(root, false)
       },
       // Only the position is written: a note shrunk to the board keeps its stored size.
       commit(point) {
+        if (isOverTrash(point, boardSize())) {
+          onDelete(note.id)
+          return
+        }
         const moved = movedTo(point)
         if (moved.x !== x || moved.y !== y) onChange({ ...note, x: moved.x, y: moved.y })
       },
