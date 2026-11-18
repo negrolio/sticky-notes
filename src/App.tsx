@@ -1,3 +1,5 @@
+import './App.css'
+
 export function App() {
-  return <main>Sticky Notes</main>
+  return <main className="board" aria-label="Sticky notes board" />
 }

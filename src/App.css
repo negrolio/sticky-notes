@@ -1,0 +1,18 @@
+html,
+body,
+#root {
+  margin: 0;
+  height: 100%;
+  overflow: hidden;
+}
+
+body {
+  font-family: system-ui, sans-serif;
+  background: #eceff1;
+}
+
+.board {
+  position: fixed;
+  inset: 0;
+  overflow: hidden;
+}
