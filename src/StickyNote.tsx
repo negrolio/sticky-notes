@@ -1,7 +1,8 @@
 import { memo, useRef, type PointerEvent as ReactPointerEvent } from 'react'
 import { boardSize } from './board.ts'
-import { clampRect } from './geometry.ts'
+import { clampRect, type Point } from './geometry.ts'
 import type { Note } from './model.ts'
+import { resizedRect } from './resize.ts'
 import { usePointerGesture } from './usePointerGesture.ts'
 
 interface StickyNoteProps {
@@ -11,25 +12,31 @@ interface StickyNoteProps {
   onChange: (note: Note) => void
 }
 
-/** During a move the note does not render at all; its position is written straight to `transform`. */
+/** Applies a gesture's latest point to the DOM at most once per animation frame. */
+interface FrameGesture {
+  /** Writes the in-progress result straight to the note's DOM, bypassing React. */
+  apply: (root: HTMLDivElement, point: Point) => void
+  /** Undoes everything `apply` wrote, so React's own styles show again. */
+  reset: (root: HTMLDivElement) => void
+  commit: (point: Point) => void
+}
+
+/** During a move or resize the note does not render at all; the gesture writes to its DOM. */
 function StickyNoteView({ note, autoFocus, onChange }: StickyNoteProps) {
   const rootRef = useRef<HTMLDivElement>(null)
   const startGesture = usePointerGesture()
 
-  const onHeaderPointerDown = (event: ReactPointerEvent<HTMLElement>) => {
+  const startFrameGesture = (event: ReactPointerEvent<HTMLElement>, gesture: FrameGesture) => {
     event.preventDefault()
     const root = rootRef.current
     if (!root) return
-    const start = { x: event.clientX, y: event.clientY }
     let frame: number | null = null
-    let latest = start
+    let latest: Point = { x: event.clientX, y: event.clientY }
 
-    const movedTo = (point: { x: number; y: number }) =>
-      clampRect({ ...note, x: note.x + point.x - start.x, y: note.y + point.y - start.y }, boardSize())
     const stopFrames = () => {
       if (frame !== null) cancelAnimationFrame(frame)
       frame = null
-      root.style.transform = ''
+      gesture.reset(root)
     }
 
     startGesture(event, {
@@ -37,16 +44,57 @@ function StickyNoteView({ note, autoFocus, onChange }: StickyNoteProps) {
         latest = point
         frame ??= requestAnimationFrame(() => {
           frame = null
-          const { x, y } = movedTo(latest)
-          root.style.transform = `translate(${String(x - note.x)}px, ${String(y - note.y)}px)`
+          gesture.apply(root, latest)
         })
       },
       onEnd(point) {
         stopFrames()
+        gesture.commit(point)
+      },
+      onCancel: stopFrames,
+    })
+  }
+
+  const onHeaderPointerDown = (event: ReactPointerEvent<HTMLElement>) => {
+    const start = { x: event.clientX, y: event.clientY }
+    const movedTo = (point: Point) =>
+      clampRect({ ...note, x: note.x + point.x - start.x, y: note.y + point.y - start.y }, boardSize())
+
+    startFrameGesture(event, {
+      apply(root, point) {
+        const { x, y } = movedTo(point)
+        root.style.transform = `translate(${String(x - note.x)}px, ${String(y - note.y)}px)`
+      },
+      reset(root) {
+        root.style.transform = ''
+      },
+      commit(point) {
         const { x, y } = movedTo(point)
         if (x !== note.x || y !== note.y) onChange({ ...note, x, y })
       },
-      onCancel: stopFrames,
+    })
+  }
+
+  const onResizePointerDown = (event: ReactPointerEvent<HTMLElement>) => {
+    const start = { x: event.clientX, y: event.clientY }
+    const resizedTo = (point: Point) => resizedRect(note, { x: point.x - start.x, y: point.y - start.y }, boardSize())
+
+    startFrameGesture(event, {
+      apply(root, point) {
+        const { width, height } = resizedTo(point)
+        root.style.width = `${String(width)}px`
+        root.style.height = `${String(height)}px`
+      },
+      reset(root) {
+        root.style.width = `${String(note.width)}px`
+        root.style.height = `${String(note.height)}px`
+      },
+      commit(point) {
+        const rect = resizedTo(point)
+        if (rect.x !== note.x || rect.y !== note.y || rect.width !== note.width || rect.height !== note.height) {
+          onChange({ ...note, ...rect })
+        }
+      },
     })
   }
 
@@ -69,7 +117,7 @@ function StickyNoteView({ note, autoFocus, onChange }: StickyNoteProps) {
       <div className="note-header" onPointerDown={onHeaderPointerDown} />
       {/* Read-only until text editing lands; still focusable so a new note can take focus. */}
       <textarea className="note-text" aria-label="Note text" value={note.text} readOnly autoFocus={autoFocus} />
-      <div className="note-resize" role="img" aria-label="Resize note" />
+      <div className="note-resize" role="img" aria-label="Resize note" onPointerDown={onResizePointerDown} />
     </div>
   )
 }
