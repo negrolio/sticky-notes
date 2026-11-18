@@ -21,7 +21,7 @@ interface AppProps {
 }
 
 export function App({ repository = defaultRepository }: AppProps) {
-  const { loaded, notes, upsert, remove } = useNotes(repository)
+  const { loaded, loadFailed, retryLoad, notes, upsert, remove, saveRetrying, notSaved } = useNotes(repository)
   // Notes render in ascending z because the Tab order follows the document order (decision 18).
   const byZ = useMemo(() => [...notes].sort((p, q) => p.z - q.z), [notes])
   // Read through a ref so that raisedZ stays stable and a commit to one note leaves the others' props unchanged.
@@ -62,8 +62,10 @@ export function App({ repository = defaultRepository }: AppProps) {
   const board = useBoardSize()
 
   const onBoardPointerDown = (event: ReactPointerEvent<HTMLElement>) => {
-    // Before the load lands, a new note's z could not be placed above the stored notes.
-    if (!loaded || event.target !== event.currentTarget) return
+    // Before the load lands, a new note's z could not be placed above the stored notes. After a failed
+    // load the empty board is usable anyway (a later Retry merges in the stored notes), or a backend
+    // that always fails would allow no change at all.
+    if (!(loaded || loadFailed) || event.target !== event.currentTarget) return
     // A press on the board while the color popover is open only closes the popover.
     if (colors) return
     event.preventDefault()
@@ -89,7 +91,12 @@ export function App({ repository = defaultRepository }: AppProps) {
 
   return (
     <>
-      <main className="board" aria-label="Sticky notes board" aria-busy={!loaded} onPointerDown={onBoardPointerDown}>
+      <main
+        className="board"
+        aria-label="Sticky notes board"
+        aria-busy={!loaded && !loadFailed}
+        onPointerDown={onBoardPointerDown}
+      >
         {byZ.map((note) => (
           <StickyNote
             key={note.id}
@@ -121,6 +128,21 @@ export function App({ repository = defaultRepository }: AppProps) {
       {/* A live region must exist before its content changes, so the region stays and only the toast mounts.
           Like the trash zone, it is a sibling after the board, so it stays above every note. */}
       <div className="toasts" role="status">
+        {loadFailed && (
+          <div className="toast">
+            <span>Couldn&apos;t load notes.</span>
+            <button type="button" onClick={retryLoad}>
+              Retry
+            </button>
+          </div>
+        )}
+        {saveRetrying && (
+          <div className="toast">
+            <span>Couldn&apos;t save changes. Retrying…</span>
+          </div>
+        )}
+        {/* Stays until the unsaved notes are written by a later change. */}
+        {notSaved && <div className="toast not-saved">Not saved</div>}
         {toast > 0 && <UndoToast key={toast} onUndo={undo} />}
       </div>
       {/* Like the trash zone and the toasts, after the board so it is drawn above every note. */}
