@@ -1,13 +1,16 @@
 import {
   memo,
+  useEffect,
   useLayoutEffect,
   useRef,
+  useState,
+  type ChangeEvent,
   type KeyboardEvent as ReactKeyboardEvent,
   type PointerEvent as ReactPointerEvent,
 } from 'react'
 import { boardSize } from './board.ts'
 import { clampRect, type Point, type Rect } from './geometry.ts'
-import type { Note } from './model.ts'
+import { MAX_TEXT_LENGTH, TEXT_DEBOUNCE_MS, type Note } from './model.ts'
 import { resizedRect } from './resize.ts'
 import { isOverTrash } from './trash.ts'
 import { usePointerGesture } from './usePointerGesture.ts'
@@ -59,9 +62,56 @@ function StickyNoteView({ note, x, y, width, height, autoFocus, onChange, onDele
   // The last rendered size, which a resize gesture restores on reset. A window resize may have
   // changed it since the gesture started, and React does not rewrite a style whose prop is unchanged.
   const renderedSize = useRef({ width, height })
+  // The note as last rendered. Writes start from it, not from the note a gesture's closures captured
+  // at pointer down, because text may have been written since.
+  const latestNote = useRef(note)
   useLayoutEffect(() => {
     renderedSize.current = { width, height }
+    latestNote.current = note
   })
+
+  // Typed text lives here until it is written, so typing renders only this note, never App.
+  const [text, setText] = useState(note.text)
+  const pendingText = useRef<{ text: string; timer: ReturnType<typeof setTimeout> } | null>(null)
+  // A note unmounts only when it is deleted, and the delete already carried the pending text.
+  useEffect(
+    () => () => {
+      if (pendingText.current) clearTimeout(pendingText.current.timer)
+    },
+    [],
+  )
+
+  /**
+   * The note with any pending text, which stops being pending. Every write and delete of the note
+   * goes through here, so typed text is neither lost nor written twice.
+   */
+  const withPendingText = (changed: Note): Note => {
+    const pending = pendingText.current
+    if (!pending) return changed
+    clearTimeout(pending.timer)
+    pendingText.current = null
+    return { ...changed, text: pending.text }
+  }
+
+  const flushText = () => {
+    if (!pendingText.current) return
+    // Set before the render that would set it, so a gesture ending first still sees the text.
+    latestNote.current = withPendingText(latestNote.current)
+    onChange(latestNote.current)
+  }
+
+  const onTextChange = (event: ChangeEvent<HTMLTextAreaElement>) => {
+    // maxLength already caps typing and pasting; this also covers values set by script.
+    const next = event.target.value.slice(0, MAX_TEXT_LENGTH)
+    setText(next)
+    if (pendingText.current) clearTimeout(pendingText.current.timer)
+    pendingText.current = { text: next, timer: setTimeout(flushText, TEXT_DEBOUNCE_MS) }
+  }
+
+  // Escape leaves the textarea for the note itself, so the keyboard user keeps their place.
+  const onTextKeyDown = (event: ReactKeyboardEvent<HTMLTextAreaElement>) => {
+    if (event.key === 'Escape') rootRef.current?.focus()
+  }
 
   const startFrameGesture = (event: ReactPointerEvent<HTMLElement>, gesture: FrameGesture) => {
     event.preventDefault()
@@ -120,11 +170,11 @@ function StickyNoteView({ note, x, y, width, height, autoFocus, onChange, onDele
       // Only the position is written: a note shrunk to the board keeps its stored size.
       commit(point) {
         if (isOverTrash(point, boardSize())) {
-          onDelete(note)
+          onDelete(withPendingText(latestNote.current))
           return
         }
         const moved = movedTo(point)
-        if (moved.x !== x || moved.y !== y) onChange({ ...note, x: moved.x, y: moved.y })
+        if (moved.x !== x || moved.y !== y) onChange(withPendingText({ ...latestNote.current, x: moved.x, y: moved.y }))
       },
     })
   }
@@ -149,7 +199,7 @@ function StickyNoteView({ note, x, y, width, height, autoFocus, onChange, onDele
       commit(point) {
         const resized = resizedTo(point)
         if (resized.x !== x || resized.y !== y || resized.width !== width || resized.height !== height) {
-          onChange({ ...note, ...resized })
+          onChange(withPendingText({ ...latestNote.current, ...resized }))
         }
       },
     })
@@ -161,7 +211,7 @@ function StickyNoteView({ note, x, y, width, height, autoFocus, onChange, onDele
     event.preventDefault()
     // Focus moves before the delete, so it never falls to the body while a note is left.
     adjacentNote(event.currentTarget)?.focus()
-    onDelete(note)
+    onDelete(withPendingText(note))
   }
 
   return (
@@ -183,8 +233,16 @@ function StickyNoteView({ note, x, y, width, height, autoFocus, onChange, onDele
       }}
     >
       <div className="note-header" onPointerDown={onHeaderPointerDown} />
-      {/* Read-only until text editing lands; still focusable so a new note can take focus. */}
-      <textarea className="note-text" aria-label="Note text" value={note.text} readOnly autoFocus={autoFocus} />
+      <textarea
+        className="note-text"
+        aria-label="Note text"
+        value={text}
+        maxLength={MAX_TEXT_LENGTH}
+        autoFocus={autoFocus}
+        onChange={onTextChange}
+        onBlur={flushText}
+        onKeyDown={onTextKeyDown}
+      />
       <div className="note-resize" role="img" aria-label="Resize note" onPointerDown={onResizePointerDown} />
     </div>
   )
