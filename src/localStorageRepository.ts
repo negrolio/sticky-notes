@@ -11,8 +11,8 @@ function isFiniteNumber(value: unknown): value is number {
   return typeof value === 'number' && Number.isFinite(value)
 }
 
-/** A copy of the stored note with only the schema's fields, or null if it does not fit the schema. */
-function toNote(value: unknown): Note | null {
+/** A copy of the note with only the schema's fields, or null if it does not fit the schema. */
+export function toNote(value: unknown): Note | null {
   if (!isRecord(value)) return null
   const { id, x, y, width, height, text, z } = value
   const color = PALETTE.find((p) => p.color === value.color)?.color
