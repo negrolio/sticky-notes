@@ -1,6 +1,6 @@
-import { useCallback, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from 'react'
+import { useCallback, useLayoutEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from 'react'
 import './App.css'
-import { clickRect, dragRect, isWithinClickTolerance, newNote, topZ } from './create.ts'
+import { clickRect, dragRect, frontZ, isWithinClickTolerance, newNote, topZ } from './create.ts'
 import { boardSize, useBoardSize } from './board.ts'
 import { clampRect, type Rect } from './geometry.ts'
 import { TRASH_SIZE, type Note } from './model.ts'
@@ -22,6 +22,12 @@ export function App({ repository = defaultRepository }: AppProps) {
   const { loaded, notes, upsert, remove } = useNotes(repository)
   // Notes render in ascending z because the Tab order follows the document order (decision 18).
   const byZ = useMemo(() => [...notes].sort((p, q) => p.z - q.z), [notes])
+  // Read through a ref so that raisedZ stays stable and a commit to one note leaves the others' props unchanged.
+  const notesRef = useRef(notes)
+  useLayoutEffect(() => {
+    notesRef.current = notes
+  })
+  const raisedZ = useCallback((note: Note) => frontZ(note, notesRef.current), [])
   const [draft, setDraft] = useState<Rect | null>(null)
   const [focusId, setFocusId] = useState<string | null>(null)
   const { toast, deleteNote, undo } = useUndoableDelete({ remove, upsert })
@@ -77,6 +83,7 @@ export function App({ repository = defaultRepository }: AppProps) {
             autoFocus={note.id === focusId}
             onChange={upsert}
             onDelete={onDelete}
+            raisedZ={raisedZ}
             onTrashHover={onTrashHover}
           />
         ))}

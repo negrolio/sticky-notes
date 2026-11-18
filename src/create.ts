@@ -30,6 +30,11 @@ export function topZ(notes: readonly Note[]): number {
   return notes.reduce((max, note) => Math.max(max, note.z), 0) + 1
 }
 
+/** A z above every other note, or the note's own z if it is already above them all. */
+export function frontZ(note: Note, notes: readonly Note[]): number {
+  return Math.max(note.z, topZ(notes.filter((n) => n.id !== note.id)))
+}
+
 export function newNote(id: string, rect: Rect, notes: readonly Note[]): Note {
   return { id, ...rect, text: '', color: DEFAULT_COLOR, z: topZ(notes) }
 }

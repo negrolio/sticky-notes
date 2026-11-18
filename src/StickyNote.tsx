@@ -29,6 +29,8 @@ interface StickyNoteProps extends Rect {
   onDelete: (note: Note) => void
   /** Reports whether a move has the pointer over the trash zone. Must be stable across renders. */
   onTrashHover: (over: boolean) => void
+  /** The z that brings the note to the front, or its own z if it is there. Must be stable across renders. */
+  raisedZ: (note: Note) => number
 }
 
 /** Applies a gesture's latest point to the DOM at most once per animation frame. */
@@ -56,7 +58,18 @@ function adjacentNote(root: HTMLElement): HTMLElement | null {
  * displayed rect, so the preview and the committed result agree. The note renders mid-gesture only
  * if a window resize changes its displayed rect.
  */
-function StickyNoteView({ note, x, y, width, height, autoFocus, onChange, onDelete, onTrashHover }: StickyNoteProps) {
+function StickyNoteView({
+  note,
+  x,
+  y,
+  width,
+  height,
+  autoFocus,
+  onChange,
+  onDelete,
+  onTrashHover,
+  raisedZ,
+}: StickyNoteProps) {
   const rootRef = useRef<HTMLDivElement>(null)
   const startGesture = usePointerGesture()
   // The last rendered size, which a resize gesture restores on reset. A window resize may have
@@ -124,9 +137,10 @@ function StickyNoteView({ note, x, y, width, height, autoFocus, onChange, onDele
       if (frame !== null) cancelAnimationFrame(frame)
       frame = null
       gesture.reset(root)
+      root.style.zIndex = String(latestNote.current.z)
     }
 
-    startGesture(event, {
+    const started = startGesture(event, {
       onMove(point) {
         latest = point
         frame ??= requestAnimationFrame(() => {
@@ -140,6 +154,9 @@ function StickyNoteView({ note, x, y, width, height, autoFocus, onChange, onDele
       },
       onCancel: stopFrames,
     })
+    // Raised through the DOM: a render now would move the note in the DOM and drop its pointer capture.
+    // The z is computed again at commit, in case another note has risen since (an undo mid-drag).
+    if (started) root.style.zIndex = String(raisedZ(latestNote.current))
   }
 
   const onHeaderPointerDown = (event: ReactPointerEvent<HTMLElement>) => {
@@ -167,14 +184,18 @@ function StickyNoteView({ note, x, y, width, height, autoFocus, onChange, onDele
         root.style.transform = ''
         setOverTrash(root, false)
       },
-      // Only the position is written: a note shrunk to the board keeps its stored size.
+      // Only the position is written, and only if it changed: a note shrunk to the board keeps its
+      // stored rect. A deleted note keeps its stored z, so undo puts it back where it was.
       commit(point) {
+        const current = latestNote.current
         if (isOverTrash(point, boardSize())) {
-          onDelete(withPendingText(latestNote.current))
+          onDelete(withPendingText(current))
           return
         }
         const moved = movedTo(point)
-        if (moved.x !== x || moved.y !== y) onChange(withPendingText({ ...latestNote.current, x: moved.x, y: moved.y }))
+        const changed = moved.x !== x || moved.y !== y ? { ...current, x: moved.x, y: moved.y } : current
+        const z = raisedZ(current)
+        if (changed !== current || z !== current.z) onChange(withPendingText({ ...changed, z }))
       },
     })
   }
@@ -197,12 +218,24 @@ function StickyNoteView({ note, x, y, width, height, autoFocus, onChange, onDele
       },
       // The whole displayed rect is written, so a clamped note is stored where it was seen.
       commit(point) {
+        const current = latestNote.current
         const resized = resizedTo(point)
-        if (resized.x !== x || resized.y !== y || resized.width !== width || resized.height !== height) {
-          onChange(withPendingText({ ...latestNote.current, ...resized }))
-        }
+        const changed =
+          resized.x !== x || resized.y !== y || resized.width !== width || resized.height !== height
+            ? { ...current, ...resized }
+            : current
+        const z = raisedZ(current)
+        if (changed !== current || z !== current.z) onChange(withPendingText({ ...changed, z }))
       },
     })
+  }
+
+  // A header or handle press raises the note through its gesture, and has called preventDefault.
+  const onPointerDown = (event: ReactPointerEvent<HTMLDivElement>) => {
+    if (event.button !== 0 || event.defaultPrevented) return
+    const current = latestNote.current
+    const z = raisedZ(current)
+    if (z !== current.z) onChange(withPendingText({ ...current, z }))
   }
 
   // Only on the note itself: inside the textarea, Delete and Backspace edit text.
@@ -223,6 +256,7 @@ function StickyNoteView({ note, x, y, width, height, autoFocus, onChange, onDele
       data-note-id={note.id}
       className="note"
       onKeyDown={onKeyDown}
+      onPointerDown={onPointerDown}
       style={{
         left: x,
         top: y,

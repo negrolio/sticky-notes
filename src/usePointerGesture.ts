@@ -12,7 +12,8 @@ export interface GestureCallbacks {
 /**
  * Returns a function that starts a gesture from a primary-button pointer down. The pointer is
  * captured by the element that received the event, so the gesture keeps tracking outside it.
- * One gesture at a time; a pointer down while one is active is ignored.
+ * One gesture at a time; a pointer down while one is active is ignored. Returns whether the
+ * gesture started.
  */
 export function usePointerGesture() {
   const stopActive = useRef<(() => void) | null>(null)
@@ -24,8 +25,8 @@ export function usePointerGesture() {
     [],
   )
 
-  return useCallback((event: ReactPointerEvent<HTMLElement>, callbacks: GestureCallbacks) => {
-    if (event.button !== 0 || stopActive.current) return
+  return useCallback((event: ReactPointerEvent<HTMLElement>, callbacks: GestureCallbacks): boolean => {
+    if (event.button !== 0 || stopActive.current) return false
     const target = event.currentTarget
     const { pointerId } = event
     target.setPointerCapture(pointerId)
@@ -73,5 +74,6 @@ export function usePointerGesture() {
     window.addEventListener('blur', cancelHeld)
     window.addEventListener('keydown', onKeyDown)
     stopActive.current = stop
+    return true
   }, [])
 }
