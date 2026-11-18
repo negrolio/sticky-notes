@@ -1,5 +1,6 @@
 import {
   memo,
+  useCallback,
   useEffect,
   useLayoutEffect,
   useRef,
@@ -103,20 +104,28 @@ function StickyNoteView({
    * The note with any pending text, which stops being pending. Every write and delete of the note
    * goes through here, so typed text is neither lost nor written twice.
    */
-  const withPendingText = (changed: Note): Note => {
+  const withPendingText = useCallback((changed: Note): Note => {
     const pending = pendingText.current
     if (!pending) return changed
     clearTimeout(pending.timer)
     pendingText.current = null
     return { ...changed, text: pending.text }
-  }
+  }, [])
 
-  const flushText = () => {
+  const flushText = useCallback(() => {
     if (!pendingText.current) return
     // Set before the render that would set it, so a gesture ending first still sees the text.
     latestNote.current = withPendingText(latestNote.current)
     onChange(latestNote.current)
-  }
+  }, [withPendingText, onChange])
+
+  // A reload or a closed tab fires no blur, so typed text is written when the page is hidden.
+  useEffect(() => {
+    window.addEventListener('pagehide', flushText)
+    return () => {
+      window.removeEventListener('pagehide', flushText)
+    }
+  }, [flushText])
 
   const onTextChange = (event: ChangeEvent<HTMLTextAreaElement>) => {
     // maxLength already caps typing and pasting; this also covers values set by script.

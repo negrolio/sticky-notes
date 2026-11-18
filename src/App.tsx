@@ -5,7 +5,8 @@ import { boardSize, useBoardSize } from './board.ts'
 import { ColorPopover } from './ColorPopover.tsx'
 import { clampRect, type Rect } from './geometry.ts'
 import { TRASH_SIZE, type Note, type NoteColor } from './model.ts'
-import { createMemoryRepository, type NotesRepository } from './repository.ts'
+import { createLocalStorageRepository } from './localStorageRepository.ts'
+import type { NotesRepository } from './repository.ts'
 import { StickyNote } from './StickyNote.tsx'
 import { useNotes } from './store.ts'
 import { useUndoableDelete, useUndoKey } from './undo.ts'
@@ -13,7 +14,7 @@ import { UndoToast } from './UndoToast.tsx'
 import { usePointerGesture } from './usePointerGesture.ts'
 
 // Created once at module load so useNotes sees the same repository on every render.
-const defaultRepository = createMemoryRepository()
+const defaultRepository = createLocalStorageRepository()
 
 interface AppProps {
   repository?: NotesRepository
