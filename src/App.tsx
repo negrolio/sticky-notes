@@ -8,7 +8,7 @@ import {
   type PointerEvent as ReactPointerEvent,
 } from 'react'
 import './App.css'
-import { clickRect, dragRect, frontZ, isWithinClickTolerance, newNote, topZ } from './create.ts'
+import { clickRect, dragRect, frontZ, isWithinClickTolerance, newId, newNote, topZ } from './create.ts'
 import { boardSize, useBoardSize } from './board.ts'
 import { BackgroundPopover } from './BackgroundPopover.tsx'
 import {
@@ -180,7 +180,7 @@ export function App({ repository = defaultRepository, backgroundStore = defaultB
       onEnd(point) {
         setDraft(null)
         const rect = dragged ? dragRect(start, point, boardSize()) : clickRect(start, boardSize())
-        const note = newNote(crypto.randomUUID(), rect, notes)
+        const note = newNote(newId(), rect, notes)
         setFocusId(note.id)
         upsert(note)
       },

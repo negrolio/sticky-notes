@@ -38,3 +38,16 @@ export function frontZ(note: Note, notes: readonly Note[]): number {
 export function newNote(id: string, rect: Rect, notes: readonly Note[]): Note {
   return { id, ...rect, text: '', color: DEFAULT_COLOR, z: topZ(notes) }
 }
+
+/**
+ * A random v4 UUID. Not `crypto.randomUUID`, which exists only in secure contexts, so it is missing
+ * when a phone opens the dev server by its LAN address over plain HTTP.
+ */
+export function newId(): string {
+  // Byte 6 carries the version (4), byte 8 the variant (10xx).
+  const bytes = crypto
+    .getRandomValues(new Uint8Array(16))
+    .map((b, i) => (i === 6 ? (b & 0x0f) | 0x40 : i === 8 ? (b & 0x3f) | 0x80 : b))
+  const hex = Array.from(bytes, (b) => b.toString(16).padStart(2, '0')).join('')
+  return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`
+}

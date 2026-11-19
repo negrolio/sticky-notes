@@ -5,9 +5,13 @@ A single-page sticky notes board in TypeScript and React. Drag on empty space to
 it on the trash zone to delete it, and undo with the toast or Ctrl+Z / Cmd+Z. Notes can be edited,
 recolored, given a font and size, and brought to the front, and they persist across reloads. A
 movable toolbar deletes all notes at once (also undoable) and sets the board background to a color
-or an image. Deleted notes fly into the trash, and an empty board says how to start. Desktop only:
-latest Chrome, Firefox and Edge, minimum viewport 1024×768. `SPEC.md` holds the decisions and
-acceptance criteria, and `docs/plan.md` the order in which they were built.
+or an image. Deleted notes fly into the trash, and an empty board says how to start. Built for
+desktop: latest Chrome, Firefox and Edge, minimum viewport 1024×768. `SPEC.md` holds the decisions
+and acceptance criteria, and `docs/plan.md` the order in which they were built.
+
+It also works on touch devices, though it is not the best experience there: a tap creates a note,
+and dragging sizes a new note, moves one by its header or resizes it from its corner. The layout
+was not adapted to small screens, and text that overflows a note cannot be scrolled by touch.
 
 ## Build and run
 
@@ -15,10 +19,13 @@ Requires Node.js 20.9+ or 22+.
 
 ```bash
 npm install
-npm run dev         # Vite dev server, http://localhost:5173
+npm run dev         # Vite dev server, http://localhost:5173, also on the local network
 npm run build       # production build in dist/
 npm run preview     # serves the production build
 ```
+
+To try it on a phone, run `npm run dev` and open the "Network" URL Vite prints (for example
+`http://192.168.0.19:5173`) from a device on the same network.
 
 Checks (typecheck, lint and test are green on every commit):
 
