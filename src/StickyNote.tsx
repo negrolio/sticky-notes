@@ -11,7 +11,7 @@ import {
 } from 'react'
 import { boardSize } from './board.ts'
 import { clampRect, type Point, type Rect } from './geometry.ts'
-import { MAX_TEXT_LENGTH, TEXT_DEBOUNCE_MS, type Note } from './model.ts'
+import { DEFAULT_FONT_SIZE, fontStack, MAX_TEXT_LENGTH, TEXT_DEBOUNCE_MS, type Note } from './model.ts'
 import { resizedRect } from './resize.ts'
 import { isOverTrash } from './trash.ts'
 import { usePointerGesture } from './usePointerGesture.ts'
@@ -35,6 +35,9 @@ interface StickyNoteProps extends Rect {
   colorsOpen: boolean
   /** Toggles the color popover for this note, anchored to its swatch button. Must be stable across renders. */
   onColorButton: (id: string, button: HTMLButtonElement) => void
+  fontOpen: boolean
+  /** Toggles the font popover for this note, anchored to its "Aa" button. Must be stable across renders. */
+  onFontButton: (id: string, button: HTMLButtonElement) => void
 }
 
 /** Applies a gesture's latest point to the DOM at most once per animation frame. */
@@ -75,6 +78,8 @@ function StickyNoteView({
   raisedZ,
   colorsOpen,
   onColorButton,
+  fontOpen,
+  onFontButton,
 }: StickyNoteProps) {
   const rootRef = useRef<HTMLDivElement>(null)
   const startGesture = usePointerGesture()
@@ -174,7 +179,7 @@ function StickyNoteView({
   }
 
   const onHeaderPointerDown = (event: ReactPointerEvent<HTMLElement>) => {
-    // A press on the swatch button is a click, not the start of a move.
+    // A press on a header button is a click, not the start of a move.
     if (event.target !== event.currentTarget) return
     const start = { x: event.clientX, y: event.clientY }
     const movedTo = (point: Point) =>
@@ -285,6 +290,18 @@ function StickyNoteView({
       <div className="note-header" onPointerDown={onHeaderPointerDown}>
         <button
           type="button"
+          className="note-font"
+          aria-label="Change font"
+          aria-haspopup="dialog"
+          aria-expanded={fontOpen}
+          onClick={(event) => {
+            onFontButton(note.id, event.currentTarget)
+          }}
+        >
+          Aa
+        </button>
+        <button
+          type="button"
           className="note-color"
           aria-label="Change color"
           aria-haspopup="dialog"
@@ -300,6 +317,7 @@ function StickyNoteView({
         aria-label="Note text"
         value={text}
         maxLength={MAX_TEXT_LENGTH}
+        style={{ fontFamily: fontStack(note), fontSize: note.fontSize ?? DEFAULT_FONT_SIZE }}
         autoFocus={autoFocus}
         onChange={onTextChange}
         onBlur={flushText}

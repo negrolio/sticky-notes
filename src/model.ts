@@ -12,7 +12,14 @@ export interface Note {
   text: string
   color: NoteColor
   z: number
+  /** Absent means DEFAULT_FONT_FAMILY. Written only once the user picks a family (decision 26). */
+  fontFamily?: FontFamily
+  /** Absent means DEFAULT_FONT_SIZE. Written only once the user picks a size. */
+  fontSize?: FontSize
 }
+
+export type FontFamily = 'sans' | 'serif' | 'mono' | 'hand'
+export type FontSize = 14 | 18 | 24
 
 export const PALETTE: readonly { readonly name: string; readonly color: NoteColor }[] = [
   { name: 'Yellow', color: '#FFF59D' },
@@ -23,6 +30,29 @@ export const PALETTE: readonly { readonly name: string; readonly color: NoteColo
 ]
 
 export const DEFAULT_COLOR: NoteColor = '#FFF59D'
+
+/** System fonts only, so nothing is loaded. */
+export const FONT_FAMILIES: readonly { readonly name: string; readonly family: FontFamily; readonly stack: string }[] = [
+  { name: 'Sans', family: 'sans', stack: 'system-ui, sans-serif' },
+  { name: 'Serif', family: 'serif', stack: "Georgia, 'Times New Roman', serif" },
+  { name: 'Mono', family: 'mono', stack: 'ui-monospace, Menlo, Consolas, monospace' },
+  { name: 'Hand', family: 'hand', stack: "'Segoe Print', 'Bradley Hand', 'Comic Sans MS', cursive" },
+]
+
+export const FONT_SIZES: readonly { readonly name: string; readonly size: FontSize }[] = [
+  { name: 'Small', size: 14 },
+  { name: 'Medium', size: 18 },
+  { name: 'Large', size: 24 },
+]
+
+export const DEFAULT_FONT_FAMILY: FontFamily = 'sans'
+export const DEFAULT_FONT_SIZE: FontSize = 14
+
+/** The CSS font-family stack a note's text is shown in. */
+export function fontStack(note: Pick<Note, 'fontFamily'>): string {
+  const family = note.fontFamily ?? DEFAULT_FONT_FAMILY
+  return FONT_FAMILIES.find((f) => f.family === family)?.stack ?? 'system-ui, sans-serif'
+}
 
 export const MIN_NOTE_SIZE: Readonly<Size> = { width: 80, height: 80 }
 export const CLICK_NOTE_SIZE: Readonly<Size> = { width: 200, height: 200 }

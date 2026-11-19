@@ -3,8 +3,9 @@ import './App.css'
 import { clickRect, dragRect, frontZ, isWithinClickTolerance, newNote, topZ } from './create.ts'
 import { boardSize, useBoardSize } from './board.ts'
 import { ColorPopover } from './ColorPopover.tsx'
+import { FontPopover } from './FontPopover.tsx'
 import { clampRect, type Rect } from './geometry.ts'
-import { TRASH_SIZE, type Note, type NoteColor } from './model.ts'
+import { DEFAULT_FONT_FAMILY, DEFAULT_FONT_SIZE, TRASH_SIZE, type Note, type NoteColor } from './model.ts'
 import { createLocalStorageRepository } from './localStorageRepository.ts'
 import type { NotesRepository } from './repository.ts'
 import { StickyNote } from './StickyNote.tsx'
@@ -32,15 +33,27 @@ export function App({ repository = defaultRepository }: AppProps) {
   const raisedZ = useCallback((note: Note) => frontZ(note, notesRef.current), [])
   const [draft, setDraft] = useState<Rect | null>(null)
   const [focusId, setFocusId] = useState<string | null>(null)
-  // The note whose color popover is open, and the swatch button it is anchored to.
-  const [colors, setColors] = useState<{ id: string; button: HTMLButtonElement } | null>(null)
-  const onColorButton = useCallback((id: string, button: HTMLButtonElement) => {
-    setColors((open) => (open?.id === id ? null : { id, button }))
+  // The one open note popover (decision 26), its note, and the header button it is anchored to.
+  const [popover, setPopover] = useState<{ kind: 'color' | 'font'; id: string; button: HTMLButtonElement } | null>(null)
+  const togglePopover = useCallback((kind: 'color' | 'font', id: string, button: HTMLButtonElement) => {
+    setPopover((open) => (open?.kind === kind && open.id === id ? null : { kind, id, button }))
   }, [])
-  const closeColors = useCallback(() => {
-    setColors(null)
+  const onColorButton = useCallback(
+    (id: string, button: HTMLButtonElement) => {
+      togglePopover('color', id, button)
+    },
+    [togglePopover],
+  )
+  const onFontButton = useCallback(
+    (id: string, button: HTMLButtonElement) => {
+      togglePopover('font', id, button)
+    },
+    [togglePopover],
+  )
+  const closePopover = useCallback(() => {
+    setPopover(null)
   }, [])
-  const colorsNote = colors && notes.find((n) => n.id === colors.id)
+  const popoverNote = popover && notes.find((n) => n.id === popover.id)
   const { toast, deleteNote, undo } = useUndoableDelete({ remove, upsert })
   useUndoKey(undo)
   // A deleted note must not take focus again when it is restored.
@@ -48,7 +61,7 @@ export function App({ repository = defaultRepository }: AppProps) {
     (note: Note) => {
       setFocusId(null)
       // Otherwise the popover would come back with the note if the delete is undone.
-      setColors((open) => (open?.id === note.id ? null : open))
+      setPopover((open) => (open?.id === note.id ? null : open))
       deleteNote(note)
     },
     [deleteNote],
@@ -66,8 +79,8 @@ export function App({ repository = defaultRepository }: AppProps) {
     // load the empty board is usable anyway (a later Retry merges in the stored notes), or a backend
     // that always fails would allow no change at all.
     if (!(loaded || loadFailed) || event.target !== event.currentTarget) return
-    // A press on the board while the color popover is open only closes the popover.
-    if (colors) return
+    // A press on the board while a popover is open only closes the popover.
+    if (popover) return
     event.preventDefault()
     const start = { x: event.clientX, y: event.clientY }
     let dragged = false
@@ -106,8 +119,10 @@ export function App({ repository = defaultRepository }: AppProps) {
             onChange={upsert}
             onDelete={onDelete}
             raisedZ={raisedZ}
-            colorsOpen={note.id === colors?.id}
+            colorsOpen={popover?.kind === 'color' && note.id === popover.id}
             onColorButton={onColorButton}
+            fontOpen={popover?.kind === 'font' && note.id === popover.id}
+            onFontButton={onFontButton}
             onTrashHover={onTrashHover}
           />
         ))}
@@ -146,15 +161,31 @@ export function App({ repository = defaultRepository }: AppProps) {
         {toast > 0 && <UndoToast key={toast} onUndo={undo} />}
       </div>
       {/* Like the trash zone and the toasts, after the board so it is drawn above every note. */}
-      {colors && colorsNote && (
+      {popover?.kind === 'color' && popoverNote && (
         <ColorPopover
-          key={colors.id}
-          color={colorsNote.color}
-          anchor={colors.button}
+          key={popover.id}
+          color={popoverNote.color}
+          anchor={popover.button}
           onSelect={(color: NoteColor) => {
-            if (color !== colorsNote.color) upsert({ ...colorsNote, color })
+            if (color !== popoverNote.color) upsert({ ...popoverNote, color })
           }}
-          onClose={closeColors}
+          onClose={closePopover}
+        />
+      )}
+      {/* Each choice is one write (decision 26), of its own field only, so a note never given a font keeps its stored shape. */}
+      {popover?.kind === 'font' && popoverNote && (
+        <FontPopover
+          key={popover.id}
+          family={popoverNote.fontFamily ?? DEFAULT_FONT_FAMILY}
+          size={popoverNote.fontSize ?? DEFAULT_FONT_SIZE}
+          anchor={popover.button}
+          onFamily={(fontFamily) => {
+            upsert({ ...popoverNote, fontFamily })
+          }}
+          onSize={(fontSize) => {
+            upsert({ ...popoverNote, fontSize })
+          }}
+          onClose={closePopover}
         />
       )}
     </>

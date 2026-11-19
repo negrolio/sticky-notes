@@ -1,4 +1,4 @@
-import { MAX_TEXT_LENGTH, MIN_NOTE_SIZE, PALETTE, type Note } from './model.ts'
+import { FONT_FAMILIES, FONT_SIZES, MAX_TEXT_LENGTH, MIN_NOTE_SIZE, PALETTE, type Note } from './model.ts'
 import type { NotesRepository } from './repository.ts'
 
 export const STORAGE_KEY = 'sticky-notes'
@@ -16,6 +16,15 @@ export function toNote(value: unknown): Note | null {
   if (!isRecord(value)) return null
   const { id, x, y, width, height, text, z } = value
   const color = PALETTE.find((p) => p.color === value.color)?.color
+  // The font fields are optional (decision 26): absent is valid, any other value outside the sets is not.
+  const fontFamily = FONT_FAMILIES.find((f) => f.family === value.fontFamily)?.family
+  const fontSize = FONT_SIZES.find((f) => f.size === value.fontSize)?.size
+  if (
+    ('fontFamily' in value && fontFamily === undefined) ||
+    ('fontSize' in value && fontSize === undefined)
+  ) {
+    return null
+  }
   if (
     typeof id !== 'string' ||
     id === '' ||
@@ -32,7 +41,11 @@ export function toNote(value: unknown): Note | null {
   ) {
     return null
   }
-  return { id, x, y, width, height, text, color, z }
+  const note: Note = { id, x, y, width, height, text, color, z }
+  // Added only when stored, so a note never given a font keeps its stored shape.
+  if (fontFamily !== undefined) note.fontFamily = fontFamily
+  if (fontSize !== undefined) note.fontSize = fontSize
+  return note
 }
 
 /** The notes in a stored JSON string, or null if it is not valid JSON or any note breaks the schema. */

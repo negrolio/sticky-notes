@@ -31,9 +31,26 @@ body {
   display: flex;
   align-items: center;
   justify-content: flex-end;
+  gap: 6px;
   padding: 0 6px;
   cursor: grab;
   background: rgb(0 0 0 / 6%);
+}
+
+.note-font {
+  height: 18px;
+  padding: 0 4px;
+  border: 0;
+  border-radius: 3px;
+  background: transparent;
+  color: rgb(0 0 0 / 60%);
+  font: 600 12px/18px system-ui, sans-serif;
+  cursor: pointer;
+}
+
+.note-font:hover,
+.note-font[aria-expanded='true'] {
+  background: rgb(0 0 0 / 10%);
 }
 
 /* Filled with the note's color, ringed so it stands out from the header. */
@@ -189,5 +206,39 @@ body {
 
 .not-saved {
   background: #c62828;
+  font-weight: 600;
+}
+
+/* Placed and layered like the color popover. */
+.font-popover {
+  position: fixed;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 6px;
+  border-radius: 6px;
+  background: #fff;
+  box-shadow: 0 2px 8px rgb(0 0 0 / 30%);
+}
+
+.font-row {
+  display: flex;
+  gap: 4px;
+}
+
+.font-choice {
+  min-width: 52px;
+  padding: 4px 8px;
+  border: 1px solid rgb(0 0 0 / 20%);
+  border-radius: 4px;
+  background: #fff;
+  font-size: 14px;
+  cursor: pointer;
+}
+
+.font-choice[aria-pressed='true'] {
+  border-color: #323232;
+  background: #eceff1;
   font-weight: 600;
 }
