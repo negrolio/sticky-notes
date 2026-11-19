@@ -139,6 +139,46 @@ body {
   opacity: 0.4;
 }
 
+/* After the board and before the trash zone, so ghosts pass over every note and vanish into the zone. */
+.ghosts {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.ghost {
+  position: absolute;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  border-radius: 2px;
+  box-shadow: 0 2px 6px rgb(0 0 0 / 25%);
+  animation: ghost-to-trash 350ms ease-in both;
+}
+
+.ghost-header {
+  flex: 0 0 24px;
+  background: rgb(0 0 0 / 6%);
+}
+
+.ghost-text {
+  flex: 1;
+  padding: 8px;
+  overflow: hidden;
+  white-space: pre-wrap;
+  overflow-wrap: break-word;
+}
+
+@keyframes ghost-to-trash {
+  to {
+    opacity: 0;
+    transform: translate(var(--ghost-dx), var(--ghost-dy)) scale(0.1) rotate(20deg);
+  }
+}
+
 /* No z-index: as a later positioned sibling of the board, the region is painted above it. Empty, it takes no space. */
 .toasts {
   position: fixed;

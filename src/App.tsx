@@ -4,9 +4,12 @@ import { clickRect, dragRect, frontZ, isWithinClickTolerance, newNote, topZ } fr
 import { boardSize, useBoardSize } from './board.ts'
 import { ColorPopover } from './ColorPopover.tsx'
 import { FontPopover } from './FontPopover.tsx'
+import { GhostLayer } from './GhostLayer.tsx'
+import { useGhosts } from './ghosts.ts'
 import { clampRect, type Rect } from './geometry.ts'
 import { DEFAULT_FONT_FAMILY, DEFAULT_FONT_SIZE, TRASH_SIZE, type Note, type NoteColor } from './model.ts'
 import { createLocalStorageRepository } from './localStorageRepository.ts'
+import { prefersReducedMotion } from './motion.ts'
 import type { NotesRepository } from './repository.ts'
 import { StickyNote } from './StickyNote.tsx'
 import { useNotes } from './store.ts'
@@ -54,17 +57,26 @@ export function App({ repository = defaultRepository }: AppProps) {
     setPopover(null)
   }, [])
   const popoverNote = popover && notes.find((n) => n.id === popover.id)
-  const { toast, deleteNote, undo } = useUndoableDelete({ remove, upsert })
+  const { ghosts, addGhost, removeGhost, removeGhostsOf } = useGhosts()
+  const restore = useCallback(
+    (note: Note) => {
+      removeGhostsOf(note.id)
+      upsert(note)
+    },
+    [removeGhostsOf, upsert],
+  )
+  const { toast, deleteNote, undo } = useUndoableDelete({ remove, upsert: restore })
   useUndoKey(undo)
   // A deleted note must not take focus again when it is restored.
   const onDelete = useCallback(
-    (note: Note) => {
+    (note: Note, displayed: Rect) => {
       setFocusId(null)
       // Otherwise the popover would come back with the note if the delete is undone.
       setPopover((open) => (open?.id === note.id ? null : open))
       deleteNote(note)
+      if (!prefersReducedMotion()) addGhost(note, displayed)
     },
-    [deleteNote],
+    [deleteNote, addGhost],
   )
   const trashRef = useRef<HTMLDivElement>(null)
   // The highlight goes through the DOM so that App does not render mid-gesture.
@@ -134,6 +146,7 @@ export function App({ repository = defaultRepository }: AppProps) {
           />
         )}
       </main>
+      <GhostLayer ghosts={ghosts} onDone={removeGhost} />
       {/* A sibling after the board, which is its own stacking context, so it stays above every note whatever its z. */}
       <div ref={trashRef} className="trash" role="img" aria-label="Trash" style={{ width: TRASH_SIZE, height: TRASH_SIZE }}>
         <svg viewBox="0 0 24 24" width="36" height="36" aria-hidden="true">

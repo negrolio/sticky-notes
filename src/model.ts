@@ -62,5 +62,7 @@ export const MAX_TEXT_LENGTH = 10_000
 
 export const TEXT_DEBOUNCE_MS = 300
 export const UNDO_TOAST_MS = 5_000
+/** How long a delete ghost takes to reach the trash (decision 22), and its removal fallback. */
+export const GHOST_MS = 350
 export const SAVE_RETRY_DELAYS_MS: readonly number[] = [1_000, 2_000, 4_000]
 export const MOCK_LATENCY_MS: Readonly<{ min: number; max: number }> = { min: 200, max: 600 }

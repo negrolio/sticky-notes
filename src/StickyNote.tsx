@@ -26,8 +26,11 @@ interface StickyNoteProps extends Rect {
   autoFocus: boolean
   /** Commits a changed note. Must be stable across renders, or every note re-renders on each commit. */
   onChange: (note: Note) => void
-  /** Deletes the note through the undoable path. Must be stable across renders, like `onChange`. */
-  onDelete: (note: Note) => void
+  /**
+   * Deletes the note through the undoable path, with the rect it was last seen at so its ghost starts
+   * there. Must be stable across renders, like `onChange`.
+   */
+  onDelete: (note: Note, displayed: Rect) => void
   /** Reports whether a move has the pointer over the trash zone. Must be stable across renders. */
   onTrashHover: (over: boolean) => void
   /** The z that brings the note to the front, or its own z if it is there. Must be stable across renders. */
@@ -210,7 +213,7 @@ function StickyNoteView({
       commit(point) {
         const current = latestNote.current
         if (isOverTrash(point, boardSize())) {
-          onDelete(withPendingText(current))
+          onDelete(withPendingText(current), movedTo(point))
           return
         }
         const moved = movedTo(point)
@@ -265,7 +268,7 @@ function StickyNoteView({
     event.preventDefault()
     // Focus moves before the delete, so it never falls to the body while a note is left.
     adjacentNote(event.currentTarget)?.focus()
-    onDelete(withPendingText(note))
+    onDelete(withPendingText(note), { x, y, width, height })
   }
 
   return (
