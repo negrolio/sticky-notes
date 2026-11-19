@@ -1,8 +1,9 @@
 # Build plan
 
 Moves implement `SPEC.md` in order. Each move is one commit and ends green (typecheck, lint, test)
-with a working app. Core features come first (moves 1–8). Bonuses follow (moves 9–14). The work
-can stop after any move. "AC n" refers to the acceptance criteria in `SPEC.md`.
+with a working app. Core features come first (moves 1–8). Bonuses follow (moves 9–14). The UX
+additions (moves 16–21) follow them, and the wrap-up (move 15) is committed last. The work can stop
+after any move. "AC n" refers to the acceptance criteria in `SPEC.md`.
 
 Rules for every move:
 - New behaviour comes with tests for the ACs the move names. Those tests are written before the
@@ -101,13 +102,67 @@ Rules for every move:
     - A failed load shows an empty board with an error toast and a Retry button.
     - Covers: AC 40, 41.
 
+## UX additions
+
+Implement SPEC decisions 21–26. The same move rules apply: tests for the named ACs come first, a
+spec review runs before each commit, and every commit is green. Decision 23 onwards introduces new
+elements; each gets the role and `aria-label` its decision assigns. Manual ACs (56, 86) are not
+claimed in a commit; they are recorded with move 15.
+
+16. **Trash feedback.**
+    - The trash icon scales on `.trash[data-active]` with a transition, removed under
+      `prefers-reduced-motion: reduce`. CSS only; the highlight still goes through the DOM, so App
+      does not render mid-gesture.
+    - Covers: AC 51.
+
+17. **Per-note font.**
+    - The optional `fontFamily` and `fontSize` fields, their constants and labels in `model.ts`,
+      and validation in `localStorageRepository.ts` (absent is valid, anything else outside the sets
+      is invalid data).
+    - The "Aa" header button and a font popover that reuses the color popover's open, close,
+      positioning and focus behaviour. Only one note popover is open at a time.
+    - A choice writes only the field it sets, carrying pending text.
+    - Covers: AC 80, 81, 82, 83, 84, 85.
+
+18. **Delete animation.**
+    - A ghost layer after the board and before the trash zone. Every delete path (trash drop,
+      keyboard, and later delete all) reports the deleted note's displayed rect so a ghost can start
+      there. For a trash drop, that is the released position.
+    - CSS keyframes towards the trash centre (passed as custom properties). The ghost is removed on
+      `animationend`, with a timeout fallback, and on undo of its note. No ghost under reduced
+      motion, read through an injectable `matchMedia` seam.
+    - Covers: AC 52 (trash drop and keyboard parts), 53, 54, 55.
+
+19. **Toolbar.**
+    - A `role="toolbar"` sibling after the board, with the grip at its right end. The grip drag
+      reuses `usePointerGesture`, with `transform` during the drag, a commit on pointer up and
+      viewport clamping. Its position is stored in localStorage under `sticky-notes-toolbar`, and
+      it is displayed clamped when the window shrinks.
+    - The toolbar has no buttons yet; moves 20 and 21 add them.
+    - Covers: AC 57, 58, 59, 60, 61, 62, 63.
+
+20. **Delete all.**
+    - The toolbar button, the confirmation `alertdialog` with its focus trap, and a group entry on
+      the undo stack. Undo pops a single note or a whole group; the toast text depends on the entry.
+    - Ghosts for every note, staggered, if the move 18 layer allows it without restructuring.
+      Otherwise drop them and say so in the commit message (decision 22).
+    - Covers: AC 65, 66, 67, 68, 69, 70, 71, 72, 64 (first toolbar button), 52 (delete-all part).
+
+21. **Board background.**
+    - A `BackgroundStore` interface with IndexedDB and in-memory implementations. The background
+      popover with swatches, upload and remove, file checks with the error toast, and object URL
+      lifecycle.
+    - Covers: AC 73, 74, 75, 76, 77, 78, 79.
+
 ## Wrap-up
 
-15. **README and manual check.**
-    - Build and run instructions, plus the 2–3 paragraph architecture description.
-    - Manual drag and resize check with 200 notes in Chrome, Firefox and Edge. Record the result
+15. **README and manual check.** Committed after move 21.
+    - Build and run instructions, plus the 2–3 paragraph architecture description, updated for the
+      UX additions.
+    - Manual drag and resize check with 200 notes in Chrome, Firefox and Edge, also with an image
+      background and while delete ghosts animate, plus the ghost motion itself. Record the result
       in the commit message.
-    - Covers: AC 49, 50.
+    - Covers: AC 49, 50, 56, 86.
 
 ## Coverage
 
@@ -123,3 +178,12 @@ Rules for every move:
 | 8  | 3 | 18 | 6 | 28 | 9 | 38 | 13 | 48 | 3 |
 | 9  | 3 | 19 | 6 | 29 | 9 | 39 | 3 | 49 | 15 |
 | 10 | 3 | 20 | 7 | 30 | 9 | 40 | 14 | 50 | 15 |
+
+| AC | Move | AC | Move | AC | Move | AC | Move | AC | Move | AC | Move |
+|----|------|----|------|----|------|----|------|----|------|----|------|
+| 51 | 16 | 57 | 19 | 63 | 19 | 69 | 20 | 75 | 21 | 81 | 17 |
+| 52 | 18, 20 | 58 | 19 | 64 | 20 | 70 | 20 | 76 | 21 | 82 | 17 |
+| 53 | 18 | 59 | 19 | 65 | 20 | 71 | 20 | 77 | 21 | 83 | 17 |
+| 54 | 18 | 60 | 19 | 66 | 20 | 72 | 20 | 78 | 21 | 84 | 17 |
+| 55 | 18 | 61 | 19 | 67 | 20 | 73 | 21 | 79 | 21 | 85 | 17 |
+| 56 | 15 | 62 | 19 | 68 | 20 | 74 | 21 | 80 | 17 | 86 | 15 |
