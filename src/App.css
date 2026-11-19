@@ -383,13 +383,19 @@ body {
   cursor: pointer;
 }
 
-.toolbar-button:hover:not(:disabled) {
+.toolbar-button:hover:not(:disabled, [aria-disabled='true']) {
   background: rgb(0 0 0 / 8%);
 }
 
-.toolbar-button:disabled {
+.toolbar-button:disabled,
+.toolbar-button[aria-disabled='true'] {
   color: rgb(0 0 0 / 25%);
   cursor: default;
+}
+
+/* Set during a note move; the pointer is captured by the note then, so this mostly guards a second touch. */
+.toolbar-button[aria-disabled='true'] {
+  pointer-events: none;
 }
 
 /* The last sibling with the highest z-index, so the modal covers notes, toolbar and popovers. */

@@ -33,6 +33,8 @@ interface StickyNoteProps extends Rect {
   onDelete: (note: Note, displayed: Rect) => void
   /** Reports whether a move has the pointer over the trash zone. Must be stable across renders. */
   onTrashHover: (over: boolean) => void
+  /** Reports when a move starts and ends, so the toolbar can be disabled meanwhile. Must be stable across renders. */
+  onMoving: (moving: boolean) => void
   /** The z that brings the note to the front, or its own z if it is there. Must be stable across renders. */
   raisedZ: (note: Note) => number
   colorsOpen: boolean
@@ -78,6 +80,7 @@ function StickyNoteView({
   onChange,
   onDelete,
   onTrashHover,
+  onMoving,
   raisedZ,
   colorsOpen,
   onColorButton,
@@ -198,8 +201,15 @@ function StickyNoteView({
       onTrashHover(over)
     }
 
+    // Set on the first frame, so a press on the header that never moves does not touch the toolbar.
+    let moving = false
+
     startFrameGesture(event, {
       apply(root, point) {
+        if (!moving) {
+          moving = true
+          onMoving(true)
+        }
         const moved = movedTo(point)
         root.style.transform = `translate(${String(moved.x - x)}px, ${String(moved.y - y)}px)`
         setOverTrash(root, isOverTrash(point, boardSize()))
@@ -207,6 +217,10 @@ function StickyNoteView({
       reset(root) {
         root.style.transform = ''
         setOverTrash(root, false)
+        if (moving) {
+          moving = false
+          onMoving(false)
+        }
       },
       // Only the position is written, and only if it changed: a note shrunk to the board keeps its
       // stored rect. A deleted note keeps its stored z, so undo puts it back where it was.

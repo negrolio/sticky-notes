@@ -159,6 +159,15 @@ export function App({ repository = defaultRepository, backgroundStore = defaultB
   const onTrashHover = useCallback((over: boolean) => {
     trashRef.current?.toggleAttribute('data-active', over)
   }, [])
+  const backgroundButtonRef = useRef<HTMLButtonElement>(null)
+  // While a note moves, the delete-all and background buttons are disabled, so their icons are not
+  // taken for the trash zone. Through the DOM like the trash highlight, so App does not render mid-gesture.
+  const onNoteMoving = useCallback((moving: boolean) => {
+    for (const button of [deleteAllRef.current, backgroundButtonRef.current]) {
+      if (moving) button?.setAttribute('aria-disabled', 'true')
+      else button?.removeAttribute('aria-disabled')
+    }
+  }, [])
   const startGesture = usePointerGesture()
   const board = useBoardSize()
 
@@ -221,6 +230,7 @@ export function App({ repository = defaultRepository, backgroundStore = defaultB
             fontOpen={popover?.kind === 'font' && note.id === popover.id}
             onFontButton={onFontButton}
             onTrashHover={onTrashHover}
+            onMoving={onNoteMoving}
           />
         ))}
         {draft && (
@@ -251,11 +261,17 @@ export function App({ repository = defaultRepository, backgroundStore = defaultB
             setConfirmingDeleteAll(true)
           }}
         >
+          {/* A stack of notes with a cross, not a trash can, so it is not taken for the trash zone. */}
           <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true">
-            <path d="M9 3h6l1 2h4v2H4V5h4l1-2zM6 9h12l-1 12H7L6 9zm3 3v6h2v-6H9zm4 0v6h2v-6h-2z" fill="currentColor" />
+            <g fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M4 16V5a1 1 0 0 1 1-1h11" />
+              <rect x="8" y="8" width="12" height="12" rx="1.5" />
+              <path d="M11.5 11.5l5 5m0-5l-5 5" />
+            </g>
           </svg>
         </button>
         <button
+          ref={backgroundButtonRef}
           type="button"
           className="toolbar-button"
           aria-label="Change background"
