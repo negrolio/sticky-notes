@@ -12,6 +12,8 @@ export interface Ghost {
   /** From the rect's centre to the trash zone's centre. */
   dx: number
   dy: number
+  /** When the ghost starts, for the staggered ghosts of a delete all. */
+  delayMs: number
 }
 
 /** The ghosts being drawn. Adding and removing them never touches notes state or the repository. */
@@ -19,7 +21,7 @@ export function useGhosts() {
   const [ghosts, setGhosts] = useState<readonly Ghost[]>([])
   const nextKey = useRef(0)
 
-  const addGhost = useCallback((note: Note, rect: Rect) => {
+  const addGhost = useCallback((note: Note, rect: Rect, delayMs = 0) => {
     const board = boardSize()
     const ghost: Ghost = {
       key: nextKey.current++,
@@ -27,6 +29,7 @@ export function useGhosts() {
       rect,
       dx: board.width - TRASH_SIZE / 2 - (rect.x + rect.width / 2),
       dy: board.height - TRASH_SIZE / 2 - (rect.y + rect.height / 2),
+      delayMs,
     }
     setGhosts((all) => [...all, ghost])
   }, [])

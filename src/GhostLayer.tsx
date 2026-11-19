@@ -23,17 +23,17 @@ export function GhostLayer({ ghosts, onDone }: GhostLayerProps) {
 }
 
 function GhostView({ ghost, onDone }: { ghost: Ghost; onDone: (key: number) => void }) {
-  const { key, note, rect, dx, dy } = ghost
+  const { key, note, rect, dx, dy, delayMs } = ghost
 
   // jsdom, and a tab in the background, may never fire animationend.
   useEffect(() => {
     const timer = setTimeout(() => {
       onDone(key)
-    }, GHOST_MS)
+    }, delayMs + GHOST_MS)
     return () => {
       clearTimeout(timer)
     }
-  }, [key, onDone])
+  }, [key, delayMs, onDone])
 
   const style: CSSProperties & Record<'--ghost-dx' | '--ghost-dy', string> = {
     left: rect.x,
@@ -41,6 +41,7 @@ function GhostView({ ghost, onDone }: { ghost: Ghost; onDone: (key: number) => v
     width: rect.width,
     height: rect.height,
     backgroundColor: note.color,
+    animationDelay: `${String(delayMs)}ms`,
     '--ghost-dx': `${String(dx)}px`,
     '--ghost-dy': `${String(dy)}px`,
   }

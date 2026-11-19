@@ -310,3 +310,77 @@ body {
 .toolbar-grip:active {
   cursor: grabbing;
 }
+
+.toolbar-button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: #37474f;
+  cursor: pointer;
+}
+
+.toolbar-button:hover:not(:disabled) {
+  background: rgb(0 0 0 / 8%);
+}
+
+.toolbar-button:disabled {
+  color: rgb(0 0 0 / 25%);
+  cursor: default;
+}
+
+/* The last sibling with the highest z-index, so the modal covers notes, toolbar and popovers. */
+.dialog-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgb(0 0 0 / 35%);
+}
+
+.dialog {
+  width: 320px;
+  padding: 20px;
+  border-radius: 8px;
+  background: #fff;
+  box-shadow: 0 4px 16px rgb(0 0 0 / 30%);
+}
+
+.dialog h2 {
+  margin: 0 0 8px;
+  font-size: 18px;
+}
+
+.dialog p {
+  margin: 0 0 20px;
+  font-size: 14px;
+}
+
+.dialog-buttons {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.dialog-buttons button {
+  padding: 6px 14px;
+  border: 1px solid rgb(0 0 0 / 20%);
+  border-radius: 4px;
+  background: #fff;
+  font: inherit;
+  font-size: 14px;
+  cursor: pointer;
+}
+
+.dialog-buttons .danger {
+  border-color: #c62828;
+  background: #c62828;
+  color: #fff;
+}

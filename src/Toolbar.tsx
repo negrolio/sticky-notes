@@ -1,15 +1,20 @@
-import { useLayoutEffect, useRef, useState, type PointerEvent as ReactPointerEvent } from 'react'
+import { useLayoutEffect, useRef, useState, type PointerEvent as ReactPointerEvent, type ReactNode } from 'react'
 import { boardSize, useBoardSize } from './board.ts'
 import { clampRect, type Point, type Rect, type Size } from './geometry.ts'
 import { loadToolbarPosition, saveToolbarPosition, TOOLBAR_TOP } from './toolbarPosition.ts'
 import { usePointerGesture } from './usePointerGesture.ts'
+
+interface ToolbarProps {
+  /** Its buttons, before the grip. */
+  children: ReactNode
+}
 
 /**
  * The floating board toolbar (decision 23). It is placed by its stored position, or centred at the
  * top until it is first moved, and displayed clamped to the viewport. The grip moves it with the
  * gesture rules of notes: transform during the drag, one commit on pointer up, revert on cancel.
  */
-export function Toolbar() {
+export function Toolbar({ children }: ToolbarProps) {
   const rootRef = useRef<HTMLDivElement>(null)
   const [size, setSize] = useState<Size>({ width: 0, height: 0 })
   const [stored, setStored] = useState<Point | null>(() => loadToolbarPosition())
@@ -70,6 +75,7 @@ export function Toolbar() {
       aria-label="Board tools"
       style={{ left: displayed.x, top: displayed.y }}
     >
+      {children}
       {/* Not focusable: moving the toolbar by keyboard is a non-goal. */}
       <div className="toolbar-grip" role="img" aria-label="Move toolbar" onPointerDown={onGripPointerDown}>
         <svg viewBox="0 0 10 16" width="10" height="16" aria-hidden="true">

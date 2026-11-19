@@ -6,34 +6,57 @@ interface UndoableDeleteOptions {
   upsert: (note: Note) => void
 }
 
+/** The undo toast being shown. `key` changes on every delete, so the toast restarts its timer. */
+export interface UndoToastState {
+  key: number
+  /** Whether the last delete was a delete all, which has its own message (decision 24). */
+  all: boolean
+}
+
 /**
- * The one delete path: every delete goes through `deleteNote`, which keeps the note on a stack
- * for `undo`. `toast` identifies the current undo toast, or is 0 when none is shown; it changes
- * on every delete so the toast restarts its timer.
+ * The one delete path: every delete goes through `deleteNote` or `deleteNotes`, which keep the
+ * deleted notes on a stack for `undo`. A delete all is one entry, so one undo restores it whole.
  */
 export function useUndoableDelete({ remove, upsert }: UndoableDeleteOptions) {
-  const deleted = useRef<Note[]>([])
-  const [toast, setToast] = useState(0)
+  const deleted = useRef<(readonly Note[])[]>([])
+  const toastKey = useRef(0)
+  const [toast, setToast] = useState<UndoToastState | null>(null)
 
-  const deleteNote = useCallback(
-    (note: Note) => {
-      remove(note.id)
-      deleted.current.push(note)
-      setToast((t) => t + 1)
+  const deleteEntry = useCallback(
+    (notes: readonly Note[], all: boolean) => {
+      for (const note of notes) remove(note.id)
+      deleted.current.push(notes)
+      toastKey.current += 1
+      setToast({ key: toastKey.current, all })
     },
     [remove],
   )
 
-  /** Restores the most recently deleted note. Returns false, having done nothing, when there is none. */
+  const deleteNote = useCallback(
+    (note: Note) => {
+      deleteEntry([note], false)
+    },
+    [deleteEntry],
+  )
+
+  /** Deletes every given note as one undo entry. Does nothing when there are none. */
+  const deleteNotes = useCallback(
+    (notes: readonly Note[]) => {
+      if (notes.length > 0) deleteEntry(notes, true)
+    },
+    [deleteEntry],
+  )
+
+  /** Restores the most recent delete entry. Returns false, having done nothing, when there is none. */
   const undo = useCallback((): boolean => {
-    const note = deleted.current.pop()
-    if (!note) return false
-    setToast(0)
-    upsert(note)
+    const notes = deleted.current.pop()
+    if (!notes) return false
+    setToast(null)
+    for (const note of notes) upsert(note)
     return true
   }, [upsert])
 
-  return { toast, deleteNote, undo }
+  return { toast, deleteNote, deleteNotes, undo }
 }
 
 function isUndoKey(event: KeyboardEvent): boolean {

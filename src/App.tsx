@@ -1,13 +1,29 @@
-import { useCallback, useLayoutEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from 'react'
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+  type PointerEvent as ReactPointerEvent,
+} from 'react'
 import './App.css'
 import { clickRect, dragRect, frontZ, isWithinClickTolerance, newNote, topZ } from './create.ts'
 import { boardSize, useBoardSize } from './board.ts'
 import { ColorPopover } from './ColorPopover.tsx'
+import { DeleteAllDialog } from './DeleteAllDialog.tsx'
 import { FontPopover } from './FontPopover.tsx'
 import { GhostLayer } from './GhostLayer.tsx'
 import { useGhosts } from './ghosts.ts'
 import { clampRect, type Rect } from './geometry.ts'
-import { DEFAULT_FONT_FAMILY, DEFAULT_FONT_SIZE, TRASH_SIZE, type Note, type NoteColor } from './model.ts'
+import {
+  DEFAULT_FONT_FAMILY,
+  DEFAULT_FONT_SIZE,
+  GHOST_STAGGER_MS,
+  TRASH_SIZE,
+  type Note,
+  type NoteColor,
+} from './model.ts'
 import { createLocalStorageRepository } from './localStorageRepository.ts'
 import { prefersReducedMotion } from './motion.ts'
 import type { NotesRepository } from './repository.ts'
@@ -66,7 +82,7 @@ export function App({ repository = defaultRepository }: AppProps) {
     },
     [removeGhostsOf, upsert],
   )
-  const { toast, deleteNote, undo } = useUndoableDelete({ remove, upsert: restore })
+  const { toast, deleteNote, deleteNotes, undo } = useUndoableDelete({ remove, upsert: restore })
   useUndoKey(undo)
   // A deleted note must not take focus again when it is restored.
   const onDelete = useCallback(
@@ -79,6 +95,31 @@ export function App({ repository = defaultRepository }: AppProps) {
     },
     [deleteNote, addGhost],
   )
+  const [confirmingDeleteAll, setConfirmingDeleteAll] = useState(false)
+  const deleteAllRef = useRef<HTMLButtonElement>(null)
+  const returnFocusToDeleteAll = useRef(false)
+  const cancelDeleteAll = () => {
+    returnFocusToDeleteAll.current = true
+    setConfirmingDeleteAll(false)
+  }
+  // Only once the dialog is gone: while it is mounted, it keeps focus inside itself.
+  useEffect(() => {
+    if (confirmingDeleteAll || !returnFocusToDeleteAll.current) return
+    returnFocusToDeleteAll.current = false
+    deleteAllRef.current?.focus()
+  }, [confirmingDeleteAll])
+  // One undo entry. Ghosts start in z order, staggered so the last starts by GHOST_STAGGER_MS.
+  const confirmDeleteAll = () => {
+    setConfirmingDeleteAll(false)
+    setFocusId(null)
+    setPopover(null)
+    deleteNotes(byZ)
+    if (prefersReducedMotion()) return
+    const step = byZ.length > 1 ? GHOST_STAGGER_MS / (byZ.length - 1) : 0
+    byZ.forEach((note, i) => {
+      addGhost(note, clampRect(note, board), i * step)
+    })
+  }
   const trashRef = useRef<HTMLDivElement>(null)
   // The highlight goes through the DOM so that App does not render mid-gesture.
   const onTrashHover = useCallback((over: boolean) => {
@@ -149,7 +190,23 @@ export function App({ repository = defaultRepository }: AppProps) {
       </main>
       <GhostLayer ghosts={ghosts} onDone={removeGhost} />
       {/* After the board, so it is drawn above every note and its buttons follow the notes in Tab order. */}
-      <Toolbar />
+      <Toolbar>
+        <button
+          ref={deleteAllRef}
+          type="button"
+          className="toolbar-button"
+          aria-label="Delete all notes"
+          title="Delete all notes"
+          disabled={notes.length === 0}
+          onClick={() => {
+            setConfirmingDeleteAll(true)
+          }}
+        >
+          <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true">
+            <path d="M9 3h6l1 2h4v2H4V5h4l1-2zM6 9h12l-1 12H7L6 9zm3 3v6h2v-6H9zm4 0v6h2v-6h-2z" fill="currentColor" />
+          </svg>
+        </button>
+      </Toolbar>
       {/* A sibling after the board, which is its own stacking context, so it stays above every note whatever its z. */}
       <div ref={trashRef} className="trash" role="img" aria-label="Trash" style={{ width: TRASH_SIZE, height: TRASH_SIZE }}>
         <svg viewBox="0 0 24 24" width="36" height="36" aria-hidden="true">
@@ -174,7 +231,13 @@ export function App({ repository = defaultRepository }: AppProps) {
         )}
         {/* Stays until the unsaved notes are written by a later change. */}
         {notSaved && <div className="toast not-saved">Not saved</div>}
-        {toast > 0 && <UndoToast key={toast} onUndo={undo} />}
+        {toast && (
+          <UndoToast
+            key={toast.key}
+            message={toast.all ? 'All notes deleted. Undo (Ctrl+Z)' : 'Note deleted. Undo (Ctrl+Z)'}
+            onUndo={undo}
+          />
+        )}
       </div>
       {/* Like the trash zone and the toasts, after the board so it is drawn above every note. */}
       {popover?.kind === 'color' && popoverNote && (
@@ -203,6 +266,9 @@ export function App({ repository = defaultRepository }: AppProps) {
           }}
           onClose={closePopover}
         />
+      )}
+      {confirmingDeleteAll && (
+        <DeleteAllDialog count={notes.length} onCancel={cancelDeleteAll} onConfirm={confirmDeleteAll} />
       )}
     </>
   )
