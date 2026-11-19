@@ -10,10 +10,21 @@ import {
 import './App.css'
 import { clickRect, dragRect, frontZ, isWithinClickTolerance, newNote, topZ } from './create.ts'
 import { boardSize, useBoardSize } from './board.ts'
+import { BackgroundPopover } from './BackgroundPopover.tsx'
+import {
+  BACKGROUND_COLORS,
+  createMemoryBackgroundStore,
+  DEFAULT_BACKGROUND,
+  isUsableImage,
+  useBackground,
+  useObjectUrl,
+  type BackgroundStore,
+} from './background.ts'
 import { ColorPopover } from './ColorPopover.tsx'
 import { DeleteAllDialog } from './DeleteAllDialog.tsx'
 import { FontPopover } from './FontPopover.tsx'
 import { GhostLayer } from './GhostLayer.tsx'
+import { ImageErrorToast } from './ImageErrorToast.tsx'
 import { useGhosts } from './ghosts.ts'
 import { clampRect, type Rect } from './geometry.ts'
 import {
@@ -36,12 +47,16 @@ import { usePointerGesture } from './usePointerGesture.ts'
 
 // Created once at module load so useNotes sees the same repository on every render.
 const defaultRepository = createLocalStorageRepository()
+// main.tsx passes the IndexedDB store. Kept in memory otherwise, so rendering App alone touches no IndexedDB.
+const defaultBackgroundStore = createMemoryBackgroundStore()
+const DEFAULT_BACKGROUND_COLOR = BACKGROUND_COLORS[0]?.color
 
 interface AppProps {
   repository?: NotesRepository
+  backgroundStore?: BackgroundStore
 }
 
-export function App({ repository = defaultRepository }: AppProps) {
+export function App({ repository = defaultRepository, backgroundStore = defaultBackgroundStore }: AppProps) {
   const { loaded, loadFailed, retryLoad, notes, upsert, remove, saveRetrying, notSaved } = useNotes(repository)
   // Notes render in ascending z because the Tab order follows the document order (decision 18).
   const byZ = useMemo(() => [...notes].sort((p, q) => p.z - q.z), [notes])
@@ -53,9 +68,13 @@ export function App({ repository = defaultRepository }: AppProps) {
   const raisedZ = useCallback((note: Note) => frontZ(note, notesRef.current), [])
   const [draft, setDraft] = useState<Rect | null>(null)
   const [focusId, setFocusId] = useState<string | null>(null)
-  // The one open note popover (decision 26), its note, and the header button it is anchored to.
-  const [popover, setPopover] = useState<{ kind: 'color' | 'font'; id: string; button: HTMLButtonElement } | null>(null)
-  const togglePopover = useCallback((kind: 'color' | 'font', id: string, button: HTMLButtonElement) => {
+  // The one open popover (decision 26), the note it belongs to (none for the background), and the button it is anchored to.
+  const [popover, setPopover] = useState<{
+    kind: 'color' | 'font' | 'background'
+    id: string
+    button: HTMLButtonElement
+  } | null>(null)
+  const togglePopover = useCallback((kind: 'color' | 'font' | 'background', id: string, button: HTMLButtonElement) => {
     setPopover((open) => (open?.kind === kind && open.id === id ? null : { kind, id, button }))
   }, [])
   const onColorButton = useCallback(
@@ -95,6 +114,21 @@ export function App({ repository = defaultRepository }: AppProps) {
     },
     [deleteNote, addGhost],
   )
+  const { background, setBackground } = useBackground(backgroundStore)
+  const imageUrl = useObjectUrl(background.kind === 'image' ? background.blob : null)
+  const fileInputRef = useRef<HTMLInputElement>(null)
+  // Identifies the current "Couldn't use that image." toast, or is 0 when none is shown.
+  const [imageError, setImageError] = useState(0)
+  const onImagePicked = (file: File | undefined) => {
+    if (!file) return
+    if (!isUsableImage(file)) {
+      setImageError((n) => n + 1)
+      return
+    }
+    setBackground({ kind: 'image', blob: file })
+    popover?.button.focus()
+    setPopover(null)
+  }
   const [confirmingDeleteAll, setConfirmingDeleteAll] = useState(false)
   const deleteAllRef = useRef<HTMLButtonElement>(null)
   const returnFocusToDeleteAll = useRef(false)
@@ -163,6 +197,15 @@ export function App({ repository = defaultRepository }: AppProps) {
         aria-label="Sticky notes board"
         aria-busy={!loaded && !loadFailed}
         onPointerDown={onBoardPointerDown}
+        style={{
+          backgroundColor: background.kind === 'color' ? background.color : DEFAULT_BACKGROUND_COLOR,
+          ...(imageUrl && {
+            backgroundImage: `url(${imageUrl})`,
+            backgroundSize: 'cover',
+            backgroundPosition: 'center',
+            backgroundAttachment: 'fixed',
+          }),
+        }}
       >
         {byZ.map((note) => (
           <StickyNote
@@ -206,7 +249,37 @@ export function App({ repository = defaultRepository }: AppProps) {
             <path d="M9 3h6l1 2h4v2H4V5h4l1-2zM6 9h12l-1 12H7L6 9zm3 3v6h2v-6H9zm4 0v6h2v-6h-2z" fill="currentColor" />
           </svg>
         </button>
+        <button
+          type="button"
+          className="toolbar-button"
+          aria-label="Change background"
+          title="Change background"
+          aria-haspopup="dialog"
+          aria-expanded={popover?.kind === 'background'}
+          onClick={(event) => {
+            togglePopover('background', '', event.currentTarget)
+          }}
+        >
+          <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true">
+            <path
+              d="M4 4h16a1 1 0 0 1 1 1v14a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V5a1 1 0 0 1 1-1zm1 2v10l4-4 3 3 4-5 3 4V6H5zm3 4a2 2 0 1 0 0-4 2 2 0 0 0 0 4z"
+              fill="currentColor"
+            />
+          </svg>
+        </button>
       </Toolbar>
+      {/* Outside the popover, so a pick still lands if the popover has closed meanwhile. */}
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept="image/*"
+        hidden
+        onChange={(event) => {
+          onImagePicked(event.target.files?.[0])
+          // Cleared, so picking the same file again fires a change.
+          event.target.value = ''
+        }}
+      />
       {/* A sibling after the board, which is its own stacking context, so it stays above every note whatever its z. */}
       <div ref={trashRef} className="trash" role="img" aria-label="Trash" style={{ width: TRASH_SIZE, height: TRASH_SIZE }}>
         <svg viewBox="0 0 24 24" width="36" height="36" aria-hidden="true">
@@ -231,6 +304,7 @@ export function App({ repository = defaultRepository }: AppProps) {
         )}
         {/* Stays until the unsaved notes are written by a later change. */}
         {notSaved && <div className="toast not-saved">Not saved</div>}
+        {imageError > 0 && <ImageErrorToast key={imageError} />}
         {toast && (
           <UndoToast
             key={toast.key}
@@ -263,6 +337,20 @@ export function App({ repository = defaultRepository }: AppProps) {
           }}
           onSize={(fontSize) => {
             upsert({ ...popoverNote, fontSize })
+          }}
+          onClose={closePopover}
+        />
+      )}
+      {popover?.kind === 'background' && (
+        <BackgroundPopover
+          background={background}
+          anchor={popover.button}
+          onColor={(color) => {
+            setBackground({ kind: 'color', color })
+          }}
+          onUpload={() => fileInputRef.current?.click()}
+          onRemoveImage={() => {
+            setBackground(DEFAULT_BACKGROUND)
           }}
           onClose={closePopover}
         />
