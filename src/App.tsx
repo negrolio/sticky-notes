@@ -12,6 +12,7 @@ import { createLocalStorageRepository } from './localStorageRepository.ts'
 import { prefersReducedMotion } from './motion.ts'
 import type { NotesRepository } from './repository.ts'
 import { StickyNote } from './StickyNote.tsx'
+import { Toolbar } from './Toolbar.tsx'
 import { useNotes } from './store.ts'
 import { useUndoableDelete, useUndoKey } from './undo.ts'
 import { UndoToast } from './UndoToast.tsx'
@@ -147,6 +148,8 @@ export function App({ repository = defaultRepository }: AppProps) {
         )}
       </main>
       <GhostLayer ghosts={ghosts} onDone={removeGhost} />
+      {/* After the board, so it is drawn above every note and its buttons follow the notes in Tab order. */}
+      <Toolbar />
       {/* A sibling after the board, which is its own stacking context, so it stays above every note whatever its z. */}
       <div ref={trashRef} className="trash" role="img" aria-label="Trash" style={{ width: TRASH_SIZE, height: TRASH_SIZE }}>
         <svg viewBox="0 0 24 24" width="36" height="36" aria-hidden="true">
