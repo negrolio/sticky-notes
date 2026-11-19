@@ -103,6 +103,21 @@ body {
   color: #c62828;
 }
 
+/* On the base rule, so the transition runs both when the zone highlights and when it clears. */
+.trash svg {
+  transition: transform 150ms ease-out;
+}
+
+.trash[data-active] svg {
+  transform: scale(1.2);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .trash svg {
+    transition: none;
+  }
+}
+
 .note[data-over-trash] {
   opacity: 0.4;
 }
