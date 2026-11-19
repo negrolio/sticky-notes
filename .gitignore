@@ -23,3 +23,6 @@ dist-ssr
 *.sln
 *.sw?
 coverage
+
+# Python bytecode from the Claude Code hooks
+__pycache__

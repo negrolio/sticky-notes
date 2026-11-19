@@ -1,5 +1,7 @@
 # Sticky Notes
 
+**Live demo:** https://negrolio.github.io/sticky-notes/
+
 A single-page sticky notes board in TypeScript and React. Drag on empty space to create a note
 (a click makes a 200×200 one), move it by its header, resize it from the bottom-right corner, drop
 it on the trash zone to delete it, and undo with the toast or Ctrl+Z / Cmd+Z. Notes can be edited,
@@ -44,6 +46,35 @@ Persistence uses localStorage by default. Query parameters select the async REST
   `?backend=rest&fail=1` shows the load-error toast, then the retry toast and the "Not saved"
   indicator on the first edit. A rate like `0.3` shows mostly retries that succeed.
 
+## Scope
+
+- **Required:** all four features. Create a note of a given size at a given position, resize it,
+  move it, and delete it on the trash zone.
+- **Optional bonuses:** all five. Note text, bring to front, localStorage persistence, note
+  colors, and an async REST mock.
+- **Beyond the brief**, added for usability:
+  - undo for deletes (toast and Ctrl+Z / Cmd+Z), since a drop on the trash is easy to do by mistake;
+  - a font and font size per note;
+  - a movable toolbar that deletes all notes at once (also undoable) and sets the board
+    background to a color or an image uploaded by the user;
+  - motion feedback: deleted notes fly into the trash, and the trash reacts while a note is
+    over it;
+  - a hint on the empty board that says how to start;
+  - basic touch support, outside the desktop requirement.
+
+## Assumptions
+
+- "A note of the specified size at the specified position" means the user sets both with the
+  pointer, in one gesture: drag a rectangle on empty space. Notes are at least 80×80.
+- A note is deleted when the pointer, not the note's rectangle, is over the trash at release, so a
+  large note cannot hit it by accident. Since a delete is one gesture, it can be undone.
+- The board is the viewport: it does not scroll or zoom, and nothing is placed outside it.
+- Notes are plain text, up to 10,000 characters. There is no rich text or Markdown.
+- There is no real server. The REST API is an async mock with latency and optional failures,
+  selected by query parameter because it is a testing knob, not a user choice.
+- One user in one tab: there is no cross-tab sync, and the last write wins.
+- Moving and resizing are pointer only; there is no keyboard alternative for them.
+
 ## Architecture
 
 State lives in hooks, and every change is applied to it at once, then persisted in the background:
@@ -73,3 +104,26 @@ board, which is its own stacking context, so it stays on top whatever a note's z
 `Popover` keeps at most one open. Typing is strict, with no `any`, `!` or `as` casts, and all
 outside data (localStorage, IndexedDB, the REST mock, image files) is validated when read, so a bad
 value is discarded instead of trusted.
+
+## How it was built
+
+The app was built with Claude Code as a coding agent, directed step by step: I made the product
+and design decisions and reviewed every diff before it was committed. The process had three steps.
+First, an interview (`/spec`) turned the brief into `SPEC.md`, which records goals, non-goals,
+numbered decisions with their reasons, and acceptance criteria. Then `docs/plan.md` split the spec
+into moves, each one commit that leaves the app working, with core features first and bonuses
+after, so the work could stop at any point. Last, each move was implemented test-first and checked
+against the spec before its commit.
+
+The files that drive this process:
+
+- `CLAUDE.md`: project instructions for the agent, covering commands, constraints (no libraries
+  beyond React, strict typing), known gotchas and git rules.
+- `SPEC.md`: the specification and the source of truth for behaviour.
+- `docs/plan.md`: the build order, move by move, with the acceptance criteria each move covers.
+- `.claude/commands/spec.md`: the `/spec` command that drafts `SPEC.md` by interview.
+- `.claude/agents/spec-reviewer.md`: a subagent that reviews each diff against `SPEC.md` and
+  reports only disagreements.
+- `.claude/settings.json` and `.claude/hooks/`: hooks that keep the work honest. One refuses edits
+  to committed test files, so a test cannot be changed to make code pass. The other refuses to end
+  a turn while typecheck, lint or tests are red.
