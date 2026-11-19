@@ -230,6 +230,12 @@ export function App({ repository = defaultRepository, backgroundStore = defaultB
             style={{ left: draft.x, top: draft.y, width: draft.width, height: draft.height, zIndex: topZ(notes) }}
           />
         )}
+        {(loaded || loadFailed) && notes.length === 0 && !draft && (
+          <p className="empty-hint">
+            <span className="empty-hint-title">Click anywhere for a fresh note</span>
+            <span className="empty-hint-sub">or click and drag to make it just your size</span>
+          </p>
+        )}
       </main>
       <GhostLayer ghosts={ghosts} onDone={removeGhost} />
       {/* After the board, so it is drawn above every note and its buttons follow the notes in Tab order. */}

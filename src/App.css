@@ -135,6 +135,56 @@ body {
   }
 }
 
+/* Grey lettering with a white glow, so it reads on the light board colors. Presses pass through to the board. */
+.empty-hint {
+  position: absolute;
+  top: 38%;
+  left: 50%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  margin: 0;
+  color: #78909c;
+  font-family: Montserrat, 'Helvetica Neue', Helvetica, Arial, sans-serif;
+  text-align: center;
+  text-shadow: 0 0 2px #fff, 0 0 8px #fff, 0 0 18px #fff;
+  white-space: nowrap;
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+  user-select: none;
+  animation: hint-breathe 4s ease-in-out infinite;
+}
+
+.empty-hint-title {
+  font-size: 26px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+
+.empty-hint-sub {
+  color: #90a4ae;
+  font-size: 15px;
+}
+
+/* A slow, slight swell and release, like breathing. Keeps the centring translate of .empty-hint. */
+@keyframes hint-breathe {
+  0%,
+  100% {
+    transform: translate(-50%, -50%) scale(1);
+  }
+
+  50% {
+    transform: translate(-50%, -50%) scale(1.04);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .empty-hint {
+    animation: none;
+  }
+}
+
 .note[data-over-trash] {
   opacity: 0.4;
 }
